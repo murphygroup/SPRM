@@ -1580,13 +1580,13 @@ def plot_imgs(filename: str, output_dir: Path, i: int, maskchs: List, options: D
 
 
 def make_legends(
-    feature_names,
+    feature_names: List[str],
     feature_covar,
     feature_meanall,
     filename: str,
     output_dir: Path,
     i: int,
-    maskchn: List,
+    maskchn: List[str],
     inCells: list,
     options: Dict,
     *argv,
@@ -1788,12 +1788,12 @@ def cell_analysis(
     bestz: int,
     output_dir: Path,
     seg_n: int,
-    cellidx: list,
+    cellidx: List[int],
     options: Dict,
     mean_vector: np.ndarray,
     covar_matrix: np.ndarray,
     total_vector: np.ndarray,
-    textures,
+    textures: Tuple[np.ndarray, List[str]],
     shape_vectors: Optional[np.ndarray],
 ):
     """
@@ -1842,25 +1842,22 @@ def cell_analysis(
         clustercells_shape = cell_map(mask, clustercells_shapevectors, seg_n, options)
 
     # for each channel in the mask
-    for i in range(len(maskchs)):
-        # for i in range(1):
-        seg_n = mask.get_labels(maskchs[i])
-
+    for i, ch_label in enumerate(maskchs):
         # format the feature arrays accordingly
-        mean_vector_f = cell_cluster_format(mean_vector, seg_n, options)
-        covar_matrix_f = cell_cluster_format(covar_matrix, seg_n, options)
-        total_vector_f = cell_cluster_format(total_vector, seg_n, options)
+        mean_vector_f = cell_cluster_format(mean_vector, i, options)
+        covar_matrix_f = cell_cluster_format(covar_matrix, i, options)
+        total_vector_f = cell_cluster_format(total_vector, i, options)
 
         # cluster by mean and covar using just cell segmentation mask
         print("Clustering cells and getting back labels and centers...")
         clustercells_uv, clustercells_uvcenters = cell_cluster(
-            mean_vector_f, types_list, all_clusters, "mean-" + maskchs[i], options
+            mean_vector_f, types_list, all_clusters, "mean-" + ch_label, options
         )
         clustercells_cov, clustercells_covcenters = cell_cluster(
-            covar_matrix_f, types_list, all_clusters, "covar-" + maskchs[i], options
+            covar_matrix_f, types_list, all_clusters, "covar-" + ch_label, options
         )
         clustercells_total, clustercells_totalcenters = cell_cluster(
-            total_vector_f, types_list, all_clusters, "total-" + maskchs[i], options
+            total_vector_f, types_list, all_clusters, "total-" + ch_label, options
         )
 
         clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
@@ -1880,10 +1877,10 @@ def cell_analysis(
 
         # map back to the mask segmentation of indexed cell region
         print("Mapping cell index in segmented mask to cluster IDs...")
-        cluster_cell_imgu = cell_map(mask, clustercells_uv, seg_n, options)
-        cluster_cell_imgcov = cell_map(mask, clustercells_cov, seg_n, options)
-        cluster_cell_imgtotal = cell_map(mask, clustercells_total, seg_n, options)
-        cluster_cell_imgtsneAll = cell_map(mask, clustercells_tsneAll, seg_n, options)
+        cluster_cell_imgu = cell_map(mask, clustercells_uv, i, options)
+        cluster_cell_imgcov = cell_map(mask, clustercells_cov, i, options)
+        cluster_cell_imgtotal = cell_map(mask, clustercells_total, i, options)
+        cluster_cell_imgtsneAll = cell_map(mask, clustercells_tsneAll, i, options)
         print("Getting markers that separate clusters to make legend...")
         if not options.get("skip_outlinePCA"):
             # get markers for each respective cluster & then save the legend/markers
