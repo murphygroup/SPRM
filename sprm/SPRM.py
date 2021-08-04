@@ -213,6 +213,7 @@ def main(
             # debug of cell_coordinates
             # if options.get("debug"): cell_coord_debug(mask, seg_n, options.get("num_outlinepoints"))
 
+            shape_vectors: Optional[np.ndarray] = None
             # get normalized shape representation of each cell
             if not options.get("skip_outlinePCA"):
                 outline_vectors, cell_polygons = getparametricoutline(
@@ -220,8 +221,9 @@ def main(
                 )
                 shape_vectors, pca = getcellshapefeatures(outline_vectors, options)
                 if options.get("debug"):
-                    bin_pca(shape_vectors, 1, cell_polygons, baseoutputfilename, output_dir)  # just for testing
-                    pca_recon(shape_vectors, 1, pca, baseoutputfilename, output_dir)  # just for testing
+                    # just for testing
+                    bin_pca(shape_vectors, 1, cell_polygons, baseoutputfilename, output_dir)
+                    pca_recon(shape_vectors, 1, pca, baseoutputfilename, output_dir)
                     # pca_cluster_shape(shape_vectors, cell_polygons, output_dir, options)  # just for testing
                 write_cell_polygs(cell_polygons, cellidx, baseoutputfilename, output_dir, options)
             else:
@@ -252,64 +254,36 @@ def main(
                         total_vector[t, j, i, :, :],
                     ) = calculations(masked_imgs_coord[i], im, t, i)
 
-            if not options.get("skip_outlinePCA"):
-                # save the means, covars, shape and total for each cell
-                save_all(
-                    baseoutputfilename,
-                    im,
-                    mask,
-                    output_dir,
-                    cellidx,
-                    options,
-                    mean_vector,
-                    covar_matrix,
-                    total_vector,
-                    shape_vectors,
-                )
+            # save the means, covars, shape and total for each cell
+            save_all(
+                baseoutputfilename,
+                im,
+                mask,
+                output_dir,
+                cellidx,
+                options,
+                mean_vector,
+                covar_matrix,
+                total_vector,
+                shape_vectors,
+            )
 
-                # do cell analyze
-                cell_analysis(
-                    im,
-                    mask,
-                    baseoutputfilename,
-                    bestz,
-                    output_dir,
-                    seg_n,
-                    cellidx,
-                    options,
-                    mean_vector,
-                    covar_matrix,
-                    total_vector,
-                    shape_vectors,
-                    textures,
-                )
-            else:
-                # same functions as above just without shape outlines
-                save_all(
-                    baseoutputfilename,
-                    im,
-                    mask,
-                    output_dir,
-                    cellidx,
-                    options,
-                    mean_vector,
-                    covar_matrix,
-                    total_vector,
-                )
-                cell_analysis(
-                    im,
-                    mask,
-                    baseoutputfilename,
-                    bestz,
-                    output_dir,
-                    seg_n,
-                    cellidx,
-                    options,
-                    mean_vector,
-                    covar_matrix,
-                    total_vector,
-                    textures,
-                )
+            # do cell analyze
+            cell_analysis(
+                im,
+                mask,
+                baseoutputfilename,
+                bestz,
+                output_dir,
+                seg_n,
+                cellidx,
+                options,
+                mean_vector,
+                covar_matrix,
+                total_vector,
+                textures,
+                shape_vectors,
+            )
 
         if options.get("debug"):
             print("Per image runtime: " + str(time.monotonic() - stime))

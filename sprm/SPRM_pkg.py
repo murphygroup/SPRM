@@ -6,7 +6,7 @@ from collections import defaultdict
 from itertools import chain, combinations, product
 from os import walk
 from pathlib import Path
-from typing import Any, Dict, List, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import matplotlib
 import matplotlib.cm
@@ -1589,7 +1589,7 @@ def make_legends(
     maskchn: List,
     inCells: list,
     options: Dict,
-    *argv
+    *argv,
 ):
     # make legend once
     if i == 0:
@@ -1735,16 +1735,13 @@ def save_all(
     output_dir: Path,
     cellidx: list,
     options: Dict,
-    *argv
+    mean_vector: np.ndarray,
+    covar_matrix: np.ndarray,
+    total_vector: np.ndarray,
+    outline_vectors: Optional[np.ndarray],
 ):
-    # hard coded for now
     print("Writing to csv all matrices...")
-    mean_vector = argv[0]
-    covar_matrix = argv[1]
-    total_vector = argv[2]
-
-    if not options.get("skip_outlinePCA"):
-        outline_vectors = argv[3]
+    if outline_vectors is not None:
         write_2_file(outline_vectors, filename + "-cell_shape", im, output_dir, cellidx, options)
 
     write_2_file(
@@ -1757,10 +1754,10 @@ def save_all(
     )
     # write_2_file(texture_v[0, -1, :, :, 0], filename + '-cell_channel_textures', im, output_dir, options)
 
-    for i in range(len(mask.channel_labels)):
+    for i, label in enumerate(mask.channel_labels):
         write_2_file(
             mean_vector[0, i, :, :, 0],
-            filename + "-" + mask.get_channel_labels()[i] + "_channel_mean",
+            f"{filename}-{label}_channel_mean",
             im,
             output_dir,
             cellidx,
@@ -1768,7 +1765,7 @@ def save_all(
         )
         write_2_file(
             covar_matrix[0, i, :, :, :],
-            filename + "-" + mask.get_channel_labels()[i] + "_channel_covar",
+            f"{filename}-{label}_channel_covar",
             im,
             output_dir,
             cellidx,
@@ -1776,7 +1773,7 @@ def save_all(
         )
         write_2_file(
             total_vector[0, i, :, :, 0],
-            filename + "-" + mask.get_channel_labels()[i] + "_channel_total",
+            f"{filename}-{label}_channel_total",
             im,
             output_dir,
             cellidx,
@@ -1793,7 +1790,11 @@ def cell_analysis(
     seg_n: int,
     cellidx: list,
     options: Dict,
-    *argv
+    mean_vector: np.ndarray,
+    covar_matrix: np.ndarray,
+    total_vector: np.ndarray,
+    textures,
+    shape_vectors: Optional[np.ndarray],
 ):
     """
     cluster and statisical analysis done on cell:
@@ -1801,18 +1802,9 @@ def cell_analysis(
     """
     # cellidx = mask.get_cell_index()
     stime = time.monotonic() if options.get("debug") else None
-    # hard coded for now
-    mean_vector = argv[0]
-    covar_matrix = argv[1]
-    total_vector = argv[2]
 
-    if not options.get("skip_outlinePCA"):
-        shape_vectors = argv[3]
-        texture_vectors = argv[4][0]
-        texture_channels = argv[4][1]
-    else:
-        texture_vectors = argv[3][0]
-        texture_channels = argv[3][1]
+    texture_vectors = textures[0]
+    texture_channels = textures[1]
 
     # get channel labels
     maskchs = mask.get_channel_labels()
@@ -1843,7 +1835,7 @@ def cell_analysis(
     )  # 0=use first segmentation to map
     cluster_cell_texture = cell_map(mask, clustercells_texture, seg_n, options)
 
-    if not options.get("skip_outlinePCA"):
+    if shape_vectors is not None:
         clustercells_shapevectors, shapeclcenters = shape_cluster(
             shape_vectors, types_list, all_clusters, options
         )
@@ -1871,35 +1863,20 @@ def cell_analysis(
             total_vector_f, types_list, all_clusters, "total-" + maskchs[i], options
         )
 
-        if options.get("skip_outlinePCA"):
-            clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
-                all_clusters,
-                types_list,
-                filename,
-                cellidx,
-                output_dir,
-                options,
-                mean_vector_f,
-                covar_matrix_f,
-                total_vector_f,
-                meanAll_vector_f,
-                texture_matrix,
-            )
-        else:
-            clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
-                all_clusters,
-                types_list,
-                filename,
-                cellidx,
-                output_dir,
-                options,
-                mean_vector_f,
-                covar_matrix_f,
-                total_vector_f,
-                meanAll_vector_f,
-                shape_vectors,
-                texture_matrix,
-            )
+        clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
+            all_clusters,
+            types_list,
+            filename,
+            cellidx,
+            output_dir,
+            options,
+            mean_vector_f,
+            covar_matrix_f,
+            total_vector_f,
+            meanAll_vector_f,
+            texture_matrix,
+            shape_vectors,
+        )
 
         # map back to the mask segmentation of indexed cell region
         print("Mapping cell index in segmented mask to cluster IDs...")
@@ -2696,7 +2673,9 @@ def glcm(
     return texture_all, header
 
 
-def glcmProcedure(im, mask, output_dir, filename, ROI_coords, options):
+def glcmProcedure(
+    im, mask, output_dir, filename, ROI_coords, options
+) -> Tuple[np.ndarray, List[str]]:
     """
     Wrapper for GLCM
     """
@@ -2715,27 +2694,28 @@ def glcmProcedure(im, mask, output_dir, filename, ROI_coords, options):
     )
     print("GLCM calculations completed: " + str(time.monotonic() - stime))
 
-    return [texture, texture_featureNames]
+    return texture, texture_featureNames
 
 
-def tSNE_AllFeatures(all_clusters, types_list, filename, cellidx, output_dir, options, *argv):
+def tSNE_AllFeatures(
+    all_clusters,
+    types_list,
+    filename: str,
+    cellidx,
+    output_dir: Path,
+    options: Dict[str, Any],
+    matrix_mean,
+    matrix_cov,
+    matrix_total,
+    matrix_meanAll,
+    matrix_texture,
+    matrix_shape: Optional[np.ndarray],
+):
     """
-
     By: Young Je Lee and Ted Zhang
-
     """
-
-    matrix_mean = argv[0]
-    matrix_cov = argv[1]
-    matrix_total = argv[2]
-    matrix_meanAll = argv[3]
-
-    if options.get("skip_outlinePCA"):
-        matrix_texture = argv[4]
+    if matrix_shape is None:
         matrix_shape = np.zeros((matrix_mean.shape[0], 100))
-    else:
-        matrix_shape = argv[4]
-        matrix_texture = argv[5]
 
     tSNE_allfeatures_headers = []
     cmd = options.get("tSNE_all_preprocess")[0]
