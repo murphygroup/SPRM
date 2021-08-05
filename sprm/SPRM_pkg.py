@@ -1862,16 +1862,14 @@ def cell_analysis(
             ],
         )
         print("Saving pngs of cluster plots by best focal plane...")
-        cluster_results_to_plot = (
-            [
-                ("Means", cluster_cell_imgu[bestz]),
-                ("Covar", cluster_cell_imgcov[bestz]),
-                ("MeansAll", cluster_cell_imguall[bestz]),
-                ("Total", cluster_cell_imgtotal[bestz]),
-                ("Texture", cluster_cell_texture[bestz]),
-                ("tSNEAllFeatures", cluster_cell_imgtsneAll[bestz]),
-            ],
-        )
+        cluster_results_to_plot = [
+            ("Means", cluster_cell_imgu[bestz]),
+            ("Covar", cluster_cell_imgcov[bestz]),
+            ("MeansAll", cluster_cell_imguall[bestz]),
+            ("Total", cluster_cell_imgtotal[bestz]),
+            ("Texture", cluster_cell_texture[bestz]),
+            ("tSNEAllFeatures", cluster_cell_imgtsneAll[bestz]),
+        ]
         if clustercells_shape is not None:
             cluster_results_to_plot.append(("Shape", clustercells_shape[bestz]))
 
