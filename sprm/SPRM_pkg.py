@@ -4,6 +4,7 @@ import time
 from bisect import bisect
 from collections import defaultdict
 from itertools import chain, combinations, product
+from operator import itemgetter
 from os import walk
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
@@ -1511,53 +1512,26 @@ def check_file_exist(paths: Path):
 
 
 def cell_cluster_IDs(
-    filename: str, output_dir: Path, i: int, maskchs: list, inCells: list, options: Dict, *argv
+    filename: str,
+    output_dir: Path,
+    mask_ch_label,
+    inCells: List[int],
+    options: Dict,
+    cluster_results: List[Tuple[str, np.ndarray]],
 ):
-    allClusters = argv[0]
-    for idx in range(1, len(argv)):
-        allClusters = np.column_stack((allClusters, argv[idx]))
-    # hard coded --> find a way to automate the naming
-    if not options.get("skip_outlinePCA"):
-        write_2_csv(
-            list(
-                [
-                    "K-Means [Mean] Expression",
-                    "K-Means [Covariance] Expression",
-                    "K-Means [Total] Expression",
-                    "K-Means [Mean-All-SubRegions] Expression",
-                    "K-Means [Shape-Vectors]",
-                    "K-Means [Texture]",
-                    "K-Means [tSNE_All_Features]",
-                ]
-            ),
-            allClusters,
-            filename + "-" + maskchs[i] + "_cluster",
-            output_dir,
-            inCells,
-            options,
-        )
-    else:
-        write_2_csv(
-            list(
-                [
-                    "K-Means [Mean] Expression",
-                    "K-Means [Covariance] Expression",
-                    "K-Means [Total] Expression",
-                    "K-Means [Mean-All-SubRegions] Expression",
-                    "K-Means [Texture]",
-                    "K-Means [tSNE_All_Features]",
-                ]
-            ),
-            allClusters,
-            filename + "-" + maskchs[i] + "_cluster",
-            output_dir,
-            inCells,
-            options,
-        )
+    # Drop labels and items if no results (shape vectors are optional, for example)
+    filtered = filter(itemgetter(1), cluster_results)
+    labels, values = (list(l) for l in zip(*filtered))
+    allClusters = np.column_stack(values)
 
-    # write_2_csv(list(['K-Means [Mean] Expression', 'K-Means [Covariance] Expression', 'K-Means [Total] Expression',
-    #                   'K-Means [Mean-All-SubRegions] Expression']), allClusters,
-    #             filename + '-cell_cluster', output_dir, options)
+    write_2_csv(
+        labels,
+        allClusters,
+        f"{filename}-{mask_ch_label}_cluster",
+        output_dir,
+        inCells,
+        options,
+    )
 
 
 def plot_img(cluster_im: np.ndarray, bestz: int, filename: str, output_dir: Path):
@@ -1870,25 +1844,24 @@ def cell_analysis(
                 ("total", clustercells_totalcenters),
             ],
         )
-
+        print("Writing out all cell cluster IDs for all cell clusterings...")
+        cell_cluster_IDs(
+            filename,
+            output_dir,
+            mask_ch_label,
+            cellidx,
+            options,
+            [
+                ("K-Means [Mean] Expression", clustercells_uv),
+                ("K-Means [Covariance] Expression", clustercells_cov),
+                ("K-Means [Total] Expression", clustercells_total),
+                ("K-Means [Mean-All-SubRegions] Expression", clustercells_uvall),
+                ("K-Means [Shape-Vectors]", clustercells_shapevectors),
+                ("K-Means [Texture]", clustercells_texture),
+                ("K-Means [tSNE_All_Features]", clustercells_tsneAll),
+            ],
+        )
         if not options.get("skip_outlinePCA"):
-            # save all clusterings to one csv
-            print("Writing out all cell cluster IDs for all cell clusterings...")
-            cell_cluster_IDs(
-                filename,
-                output_dir,
-                i,
-                maskchs,
-                cellidx,
-                options,
-                clustercells_uv,
-                clustercells_cov,
-                clustercells_total,
-                clustercells_uvall,
-                clustercells_shapevectors,
-                clustercells_texture,
-                clustercells_tsneAll,
-            )
             # plots the cluster imgs for the best z plane
             print("Saving pngs of cluster plots by best focal plane...")
             plot_imgs(
@@ -1906,22 +1879,6 @@ def cell_analysis(
                 cluster_cell_imgtsneAll[bestz],
             )
         else:
-            # save all clusterings to one csv
-            print("Writing out all cell cluster IDs for all cell clusterings...")
-            cell_cluster_IDs(
-                filename,
-                output_dir,
-                i,
-                maskchs,
-                cellidx,
-                options,
-                clustercells_uv,
-                clustercells_cov,
-                clustercells_total,
-                clustercells_uvall,
-                clustercells_texture,
-                clustercells_tsneAll,
-            )
             # plots the cluster imgs for the best z plane
             print("Saving pngs of cluster plots by best focal plane...")
             plot_imgs(
