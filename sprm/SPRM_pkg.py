@@ -411,8 +411,12 @@ def cell_cluster_format(cell_matrix: np.ndarray, segnum: int, options: Dict) -> 
 
 
 def cell_cluster(
-    cell_matrix: np.ndarray, typelist: List, all_clusters: List, s: str, options: Dict
-) -> np.ndarray:
+    cell_matrix: np.ndarray,
+    typelist: List,
+    all_clusters: List,
+    s: str,
+    options: Dict,
+) -> Tuple[np.ndarray, np.ndarray]:
     # kmeans clustering
     print("Clustering cells...")
     # check of clusters vs. n_sample wanted
@@ -1579,153 +1583,101 @@ def plot_imgs(filename: str, output_dir: Path, i: int, maskchs: List, options: D
         plot_img(argv[5], 0, filename + "-clusterbytSNEAllFeatures.png", output_dir)
 
 
-def make_legends(
-    feature_names: List[str],
-    feature_covar,
+def make_mean_legends(
     feature_meanall,
     filename: str,
     output_dir: Path,
-    i: int,
-    maskchn: List[str],
-    inCells: list,
+    inCells: List[int],
     options: Dict,
-    *argv,
+    shapeclcenters,
+    clustercells_uvallcenters,
+    clustercells_texturecenters,
+    texture_channels,
+    clustercells_tsneAllcenters,
+    tsneAll_header,
 ):
-    # make legend once
-    if i == 0:
-        print("Finding mean ALL cluster markers...")
-        retmarkers = findmarkers(argv[3], options)
-        table, markers = matchNShow_markers(argv[3], retmarkers, feature_meanall, options)
+    print("Finding mean ALL cluster markers...")
+    retmarkers = findmarkers(clustercells_uvallcenters, options)
+    table, markers = matchNShow_markers(
+        clustercells_uvallcenters, retmarkers, feature_meanall, options
+    )
+    write_2_csv(
+        markers, table, filename + "-cluster_meanALLCH_legend", output_dir, inCells, options
+    )
+    showlegend(markers, table, filename + "-cluster_meanALLCH_legend.pdf", output_dir)
+
+    if shapeclcenters is not None:
+        feature_shape = ["shapefeat " + str(ff) for ff in range(0, shapeclcenters.shape[1])]
+        print("Finding cell shape cluster markers...")
+        retmarkers = findmarkers(shapeclcenters, options)
+        table, markers = matchNShow_markers(shapeclcenters, retmarkers, feature_shape, options)
         write_2_csv(
-            markers, table, filename + "-cluster_meanALLCH_legend", output_dir, inCells, options
+            markers,
+            table,
+            filename + "-clustercell_cellshape_legend",
+            output_dir,
+            inCells,
+            options,
         )
-        showlegend(markers, table, filename + "-cluster_meanALLCH_legend.pdf", output_dir)
+        showlegend(markers, table, filename + "-clustercells_cellshape_legend.pdf", output_dir)
 
-        if not options.get("skip_outlinePCA"):
-            feature_shape = ["shapefeat " + str(ff) for ff in range(0, argv[4].shape[1])]
-            print("Finding cell shape cluster markers...")
-            retmarkers = findmarkers(argv[4], options)
-            table, markers = matchNShow_markers(argv[4], retmarkers, feature_shape, options)
-            write_2_csv(
-                markers,
-                table,
-                filename + "-clustercell_cellshape_legend",
-                output_dir,
-                inCells,
-                options,
-            )
-            showlegend(markers, table, filename + "-clustercells_cellshape_legend.pdf", output_dir)
+    print("Finding cell texture cluster markers...")
+    retmarkers = findmarkers(clustercells_tsneAllcenters, options)
+    table, markers = matchNShow_markers(
+        clustercells_texturecenters, retmarkers, texture_channels, options
+    )
+    write_2_csv(
+        markers,
+        table,
+        filename + "-clustercell_texture_legend",
+        output_dir,
+        inCells,
+        options,
+    )
+    showlegend(markers, table, filename + "-clustercells_texture_legend.pdf", output_dir)
 
-            print("Finding cell texture cluster markers...")
-            retmarkers = findmarkers(argv[5][0], options)
-            table, markers = matchNShow_markers(argv[5][0], retmarkers, argv[5][1], options)
-            write_2_csv(
-                markers,
-                table,
-                filename + "-clustercell_texture_legend",
-                output_dir,
-                inCells,
-                options,
-            )
-            showlegend(markers, table, filename + "-clustercells_texture_legend.pdf", output_dir)
+    print("Finding cell tsne all features cluster markers...")
+    retmarkers = findmarkers(clustercells_tsneAllcenters, options)
+    table, markers = matchNShow_markers(
+        clustercells_tsneAllcenters, retmarkers, tsneAll_header, options
+    )
+    write_2_csv(
+        markers,
+        table,
+        filename + "-clustercell_tSNE_legend",
+        output_dir,
+        inCells,
+        options,
+    )
+    showlegend(markers, table, filename + "-clustercells_texture_legend.pdf", output_dir)
 
-            print("Finding cell tsne all features cluster markers...")
-            retmarkers = findmarkers(argv[6][0], options)
-            table, markers = matchNShow_markers(argv[6][0], retmarkers, argv[6][1], options)
-            write_2_csv(
-                markers,
-                table,
-                filename + "-clustercell_tSNE_legend",
-                output_dir,
-                inCells,
-                options,
-            )
-            showlegend(markers, table, filename + "-clustercells_texture_legend.pdf", output_dir)
-        else:
-            print("Finding cell texture cluster markers...")
-            retmarkers = findmarkers(argv[4][0], options)
-            table, markers = matchNShow_markers(argv[4][0], retmarkers, argv[4][1], options)
-            write_2_csv(
-                markers,
-                table,
-                filename + "-clustercell_texture_legend",
-                output_dir,
-                inCells,
-                options,
-            )
-            showlegend(markers, table, filename + "-clustercells_texture_legend.pdf", output_dir)
 
-            print("Finding cell tsne all features cluster markers...")
-            retmarkers = findmarkers(argv[5][0], options)
-            table, markers = matchNShow_markers(argv[5][0], retmarkers, argv[5][1], options)
-            write_2_csv(
-                markers,
-                table,
-                filename + "-clustercell_tSNE_legend",
-                output_dir,
-                inCells,
-                options,
-            )
-            showlegend(markers, table, filename + "-clustercells_texture_legend.pdf", output_dir)
+def make_other_legends(
+    feature_names: List[str],
+    filename: str,
+    output_dir: Path,
+    mask_ch_label: str,
+    inCells: List[int],
+    options: Dict,
+    label_clustering_mapping: List[Tuple[str, np.ndarray]],
+):
+    print("Legend for mask channel:", mask_ch_label)
 
-    print("Legend for mask channel: " + str(i))
-
-    for j in range(len(argv)):
-
-        # hard coded for argv idx and - psuedo switch -- might be a more efficient way
-        if j == 0:
-            print("Finding mean cluster markers...")
-            retmarkers = findmarkers(argv[j], options)
-            table, markers = matchNShow_markers(argv[j], retmarkers, feature_names, options)
-            write_2_csv(
-                markers,
-                table,
-                filename + "-cluster" + maskchn[i] + "_mean_legend",
-                output_dir,
-                inCells,
-                options,
-            )
-            showlegend(
-                markers, table, filename + "-cluster" + maskchn[i] + "_mean_legend.pdf", output_dir
-            )
-
-        elif j == 1:
-            print("Finding covariance cluster markers...")
-            retmarkers = findmarkers(argv[j], options)
-            table, markers = matchNShow_markers(argv[j], retmarkers, feature_covar, options)
-            write_2_csv(
-                markers,
-                table,
-                filename + "-cluster" + maskchn[i] + "_covariance_legend",
-                output_dir,
-                inCells,
-                options,
-            )
-            showlegend(
-                markers,
-                table,
-                filename + "-cluster" + maskchn[i] + "_covariance_legend.pdf",
-                output_dir,
-            )
-
-        elif j == 2:
-            print("Finding total cluster markers...")
-            retmarkers = findmarkers(argv[j], options)
-            table, markers = matchNShow_markers(argv[j], retmarkers, feature_names, options)
-            write_2_csv(
-                markers,
-                table,
-                filename + "-cluster" + maskchn[i] + "_total_legend",
-                output_dir,
-                inCells,
-                options,
-            )
-            showlegend(
-                markers,
-                table,
-                filename + "-cluster" + maskchn[i] + "_total_legend.pdf",
-                output_dir,
-            )
+    for label, clustering in label_clustering_mapping:
+        print("Finding", label, "cluster markers...")
+        retmarkers = findmarkers(clustering, options)
+        table, markers = matchNShow_markers(clustering, retmarkers, feature_names, options)
+        write_2_csv(
+            markers,
+            table,
+            f"{filename}-cluster{mask_ch_label}_{label}_legend",
+            output_dir,
+            inCells,
+            options,
+        )
+        showlegend(
+            markers, table, f"{filename}-cluster{mask_ch_label}_{label}_legend.pdf", output_dir
+        )
 
 
 def save_all(
@@ -1835,6 +1787,10 @@ def cell_analysis(
     )  # 0=use first segmentation to map
     cluster_cell_texture = cell_map(mask, clustercells_texture, seg_n, options)
 
+    clustercells_shapevectors: Optional = None
+    shapeclcenters: Optional[np.ndarray] = None
+    clustercells_shape: Optional[np.ndarray] = None
+
     if shape_vectors is not None:
         clustercells_shapevectors, shapeclcenters = shape_cluster(
             shape_vectors, types_list, all_clusters, options
@@ -1842,7 +1798,7 @@ def cell_analysis(
         clustercells_shape = cell_map(mask, clustercells_shapevectors, seg_n, options)
 
     # for each channel in the mask
-    for i, ch_label in enumerate(maskchs):
+    for i, mask_ch_label in enumerate(maskchs):
         # format the feature arrays accordingly
         mean_vector_f = cell_cluster_format(mean_vector, i, options)
         covar_matrix_f = cell_cluster_format(covar_matrix, i, options)
@@ -1851,13 +1807,13 @@ def cell_analysis(
         # cluster by mean and covar using just cell segmentation mask
         print("Clustering cells and getting back labels and centers...")
         clustercells_uv, clustercells_uvcenters = cell_cluster(
-            mean_vector_f, types_list, all_clusters, "mean-" + ch_label, options
+            mean_vector_f, types_list, all_clusters, "mean-" + mask_ch_label, options
         )
         clustercells_cov, clustercells_covcenters = cell_cluster(
-            covar_matrix_f, types_list, all_clusters, "covar-" + ch_label, options
+            covar_matrix_f, types_list, all_clusters, "covar-" + mask_ch_label, options
         )
         clustercells_total, clustercells_totalcenters = cell_cluster(
-            total_vector_f, types_list, all_clusters, "total-" + ch_label, options
+            total_vector_f, types_list, all_clusters, "total-" + mask_ch_label, options
         )
 
         clustercells_tsneAll, clustercells_tsneAllcenters, tsneAll_header = tSNE_AllFeatures(
@@ -1882,26 +1838,40 @@ def cell_analysis(
         cluster_cell_imgtotal = cell_map(mask, clustercells_total, i, options)
         cluster_cell_imgtsneAll = cell_map(mask, clustercells_tsneAll, i, options)
         print("Getting markers that separate clusters to make legend...")
-        if not options.get("skip_outlinePCA"):
-            # get markers for each respective cluster & then save the legend/markers
-            make_legends(
-                feature_names,
-                feature_covar,
-                feature_meanall,
-                filename,
-                output_dir,
-                i,
-                maskchs,
-                cellidx,
-                options,
-                clustercells_uvcenters,
-                clustercells_covcenters,
-                clustercells_totalcenters,
-                clustercells_uvallcenters,
-                shapeclcenters,
-                [clustercells_texturecenters, texture_channels],
-                [clustercells_tsneAllcenters, tsneAll_header],
+
+        # make mean legend once
+        # TODO: improve this
+        if i == 0:
+            make_mean_legends(
+                feature_meanall=feature_meanall,
+                filename=filename,
+                output_dir=output_dir,
+                inCells=cellidx,
+                options=options,
+                clustercells_uvallcenters=clustercells_uvallcenters,
+                shapeclcenters=shapeclcenters,
+                clustercells_texturecenters=clustercells_texturecenters,
+                texture_channels=texture_channels,
+                clustercells_tsneAllcenters=clustercells_tsneAllcenters,
+                tsneAll_header=tsneAll_header,
             )
+
+        # get markers for each respective cluster & then save the legend/markers
+        make_other_legends(
+            feature_names,
+            filename,
+            output_dir,
+            mask_ch_label,
+            cellidx,
+            options,
+            [
+                ("mean", clustercells_uvcenters),
+                ("covariance", clustercells_covcenters),
+                ("total", clustercells_totalcenters),
+            ],
+        )
+
+        if not options.get("skip_outlinePCA"):
             # save all clusterings to one csv
             print("Writing out all cell cluster IDs for all cell clusterings...")
             cell_cluster_IDs(
@@ -1936,23 +1906,6 @@ def cell_analysis(
                 cluster_cell_imgtsneAll[bestz],
             )
         else:
-            make_legends(
-                feature_names,
-                feature_covar,
-                feature_meanall,
-                filename,
-                output_dir,
-                i,
-                maskchs,
-                cellidx,
-                options,
-                clustercells_uvcenters,
-                clustercells_covcenters,
-                clustercells_totalcenters,
-                clustercells_uvallcenters,
-                [clustercells_texturecenters, texture_channels],
-                [clustercells_tsneAllcenters, tsneAll_header],
-            )
             # save all clusterings to one csv
             print("Writing out all cell cluster IDs for all cell clusterings...")
             cell_cluster_IDs(
