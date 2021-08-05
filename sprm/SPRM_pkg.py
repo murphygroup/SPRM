@@ -1540,21 +1540,21 @@ def plot_img(cluster_im: np.ndarray, bestz: int, filename: str, output_dir: Path
     save_image(cluster_im, output_dir / filename)
 
 
-def plot_imgs(filename: str, output_dir: Path, i: int, maskchs: List, options: Dict, *argv):
-    plot_img(argv[0], 0, filename + "-clusterbyMeansper" + maskchs[i] + ".png", output_dir)
-    plot_img(argv[1], 0, filename + "-clusterbyCovarper" + maskchs[i] + ".png", output_dir)
-    plot_img(argv[3], 0, filename + "-clusterbyTotalper" + maskchs[i] + ".png", output_dir)
+def plot_imgs(
+    filename: str,
+    output_dir: Path,
+    mask_ch_label: str,
+    options: Dict,
+    cluster_results: List[Tuple[str, np.ndarray]],
+):
 
-    if not options.get("skip_outlinePCA"):
-        plot_img(argv[4], 0, filename + "-Cluster_Shape.png", output_dir)
-
-        plot_img(argv[5], 0, filename + "-clusterbyTexture.png", output_dir)
-        plot_img(argv[2], 0, filename + "-clusterbyMeansAll.png", output_dir)
-        plot_img(argv[6], 0, filename + "-clusterbytSNEAllFeatures.png", output_dir)
-    else:
-        plot_img(argv[4], 0, filename + "-clusterbyTexture.png", output_dir)
-        plot_img(argv[1], 0, filename + "-clusterbyMeansAll.png", output_dir)
-        plot_img(argv[5], 0, filename + "-clusterbytSNEAllFeatures.png", output_dir)
+    for label, cluster_image in cluster_results:
+        plot_img(
+            cluster_image,
+            0,
+            f"{filename}-clusterBy{label}per{mask_ch_label}.png",
+            output_dir,
+        )
 
 
 def make_mean_legends(
@@ -1861,39 +1861,27 @@ def cell_analysis(
                 ("K-Means [tSNE_All_Features]", clustercells_tsneAll),
             ],
         )
-        if not options.get("skip_outlinePCA"):
-            # plots the cluster imgs for the best z plane
-            print("Saving pngs of cluster plots by best focal plane...")
-            plot_imgs(
-                filename,
-                output_dir,
-                i,
-                maskchs,
-                options,
-                cluster_cell_imgu[bestz],
-                cluster_cell_imgcov[bestz],
-                cluster_cell_imguall[bestz],
-                cluster_cell_imgtotal[bestz],
-                clustercells_shape[bestz],
-                cluster_cell_texture[bestz],
-                cluster_cell_imgtsneAll[bestz],
-            )
-        else:
-            # plots the cluster imgs for the best z plane
-            print("Saving pngs of cluster plots by best focal plane...")
-            plot_imgs(
-                filename,
-                output_dir,
-                i,
-                maskchs,
-                options,
-                cluster_cell_imgu[bestz],
-                cluster_cell_imgcov[bestz],
-                cluster_cell_imguall[bestz],
-                cluster_cell_imgtotal[bestz],
-                cluster_cell_texture[bestz],
-                cluster_cell_imgtsneAll[bestz],
-            )
+        print("Saving pngs of cluster plots by best focal plane...")
+        cluster_results_to_plot = (
+            [
+                ("Means", cluster_cell_imgu[bestz]),
+                ("Covar", cluster_cell_imgcov[bestz]),
+                ("MeansAll", cluster_cell_imguall[bestz]),
+                ("Total", cluster_cell_imgtotal[bestz]),
+                ("Texture", cluster_cell_texture[bestz]),
+                ("tSNEAllFeatures", cluster_cell_imgtsneAll[bestz]),
+            ],
+        )
+        if clustercells_shape is not None:
+            cluster_results_to_plot.append(("Shape", clustercells_shape[bestz]))
+
+        plot_imgs(
+            filename,
+            output_dir,
+            mask_ch_label,
+            options,
+            cluster_results_to_plot,
+        )
 
     if options.get("debug"):
         print("Elapsed time for cluster img saving: ", time.monotonic() - stime)
