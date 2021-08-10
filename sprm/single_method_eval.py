@@ -156,7 +156,10 @@ def cell_size_uniformity(mask):
     return cell_size_std
 
 
-def cell_uniformity(mask, channels, label_list=[]):
+def cell_uniformity(mask, channels, label_list=None):
+    if label_list is None:
+        label_list = []
+
     n = len(channels)
     cell_coord = get_indices_sparse(mask)[1:]
     cell_coord_num = len(cell_coord)
