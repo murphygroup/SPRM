@@ -83,16 +83,13 @@ def uniformity_CV(loc, channels):
 
 
 def uniformity_fraction(loc, channels):
-    n = len(channels)
-    for i in range(n):
-        channel = channels[i]
+    feature_matrix_pieces = []
+    for channel in channels:
         ss = StandardScaler()
         channel_z = ss.fit_transform(channel.copy())
         intensity = channel_z[tuple(loc.T)]
-        if i == 0:
-            feature_matrix = intensity
-        else:
-            feature_matrix = np.vstack((feature_matrix, intensity))
+        feature_matrix_pieces.append(intensity)
+    feature_matrix = np.vstack(feature_matrix_pieces)
     pca = PCA(n_components=1)
     model = pca.fit(feature_matrix.T)
     fraction = model.explained_variance_ratio_[0]
@@ -164,8 +161,11 @@ def cell_uniformity(mask, channels, label_list=None):
     cell_coord = get_indices_sparse(mask)[1:]
     cell_coord_num = len(cell_coord)
     ss = StandardScaler()
-    for i in range(n):
-        channel = channels[i]
+
+    feature_matrix_pieces = []
+    feature_matrix_z_pieces = []
+
+    for channel in channels:
         channel_z = ss.fit_transform(channel)
         cell_intensity = []
         cell_intensity_z = []
@@ -178,14 +178,12 @@ def cell_uniformity(mask, channels, label_list=None):
                 )
                 cell_intensity.append(single_cell_intensity)
                 cell_intensity_z.append(single_cell_intensity_z)
-        if i == 0:
-            feature_matrix = np.array(cell_intensity)
-            feature_matrix_z = np.array(cell_intensity_z)
-        else:
-            feature_matrix = np.vstack((feature_matrix, cell_intensity))
-            feature_matrix_z = np.vstack((feature_matrix_z, cell_intensity_z))
-    feature_matrix = feature_matrix.T
-    feature_matrix_z = feature_matrix_z.T
+
+        feature_matrix_pieces.append(np.array(cell_intensity))
+        feature_matrix_z_pieces.append(np.array(cell_intensity_z))
+
+    feature_matrix = np.vstack(feature_matrix_pieces).T
+    feature_matrix_z = np.vstack(feature_matrix_z_pieces).T
     CV = []
     fraction = []
     silhouette = []
@@ -273,9 +271,13 @@ def single_method_eval(img, mask, output_dir: Path) -> Dict[str, Any]:
     nuclear_matched_mask = matched_mask[1]
     cell_outside_nucleus_mask = cell_matched_mask - nuclear_matched_mask
 
-    metric_mask = np.expand_dims(cell_matched_mask, 0)
-    metric_mask = np.vstack((metric_mask, np.expand_dims(nuclear_matched_mask, 0)))
-    metric_mask = np.vstack((metric_mask, np.expand_dims(cell_outside_nucleus_mask, 0)))
+    metric_mask = np.vstack(
+        [
+            np.expand_dims(cell_matched_mask, 0),
+            np.expand_dims(nuclear_matched_mask, 0),
+            np.expand_dims(cell_outside_nucleus_mask, 0),
+        ]
+    )
 
     # separate image foreground background
     img_thresholded = sum(
