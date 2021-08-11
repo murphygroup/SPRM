@@ -437,7 +437,10 @@ def cell_cluster(
                 preds = cellbycluster.fit_predict(cell_matrix)
                 cluster_list.append(cellbycluster)
 
-                score = silhouette_score(cell_matrix, preds)
+                if len(preds) < 2:
+                    score = 0
+                else:
+                    score = silhouette_score(cell_matrix, preds)
                 cluster_score.append(score)
 
             max_value = max(cluster_score)
