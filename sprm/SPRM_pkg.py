@@ -1181,7 +1181,7 @@ def findmarkers(clustercenters: np.ndarray, options: Dict) -> List:
 
     # check cc and variance is not NaNs
     if np.isnan(cc).any():
-        markerlist = list(np.argsort(-clustercenters.ravel())[:markergoal])
+        markerlist = list((np.ceil(np.argsort(-clustercenters.ravel())[:markergoal] / clustercenters.shape[1])).astype(int))
         return markerlist
 
     thresh = 0.9
@@ -2099,6 +2099,13 @@ def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, dist
         map(lambda x, y, z, c, t: x.format(channeln=y, mask=z, col=c, d=t), column_format, channel_labels, maskn, cols,
             dlist))
 
+    # read in signal csv
+    signal_path = output_dir / (im.name + "-SNR.csv")
+    signal_file = get_paths(signal_path)
+    SNR = pd.read_csv(signal_file[0]).to_numpy()
+    zscore = SNR[0, 1:]
+    otsu = SNR[1, 1:]
+
     # ogimg = im.get_data()
     # cellsbychannelROI = np.empty((2, cell_total[0], im.get_data().shape[2]), dtype=np.ndarray)
     # inCells = np.asarray(inCells)
@@ -2138,6 +2145,11 @@ def glcm(im, mask, bestz, output_dir, cell_total, filename, options, angle, dist
             # l = abc(imga, cl, curROI, xmax, xmin, ymax, ymin)
 
             for j in range(len(im.channel_labels)):  # For each channel
+
+                #filter by SNR: Z-Score < 1: texture_all[:, :, j, :] = 0
+                #continue
+                if zscore[j] < 1:
+                    continue
 
                 # convert to uint
                 imgroi = imga[0, 0, j, 0, curROI[0], curROI[1]]
