@@ -446,7 +446,6 @@ def cell_cluster(
                     except ValueError:
                         print(cell_matrix.shape)
                         print(preds.shape)
-                    else:
                         score = 0
 
                 cluster_score.append(score)
