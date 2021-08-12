@@ -437,10 +437,18 @@ def cell_cluster(
                 preds = cellbycluster.fit_predict(cell_matrix)
                 cluster_list.append(cellbycluster)
 
+                #edge case in which there are no labels
                 if len(preds) < 2:
                     score = 0
                 else:
-                    score = silhouette_score(cell_matrix, preds)
+                    try:
+                        score = silhouette_score(cell_matrix, preds)
+                    except ValueError:
+                        print(cell_matrix.shape)
+                        print(preds.shape)
+                    else:
+                        score = 0
+
                 cluster_score.append(score)
 
             max_value = max(cluster_score)
