@@ -131,10 +131,6 @@ def main(
         elif eval_pathway == 2:
             seg_metric_list.append(single_method_eval(im, mask, output_dir))
 
-        # combination of mask_img & get_masked_imgs
-        ROI_coords = get_coordinates(mask, options)
-        mask.set_ROI(ROI_coords)
-
         # quality control of image and mask for edge cells and best z slices +- n options
         quality_control(mask, im, ROI_coords, options)
 

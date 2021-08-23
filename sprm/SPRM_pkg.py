@@ -77,8 +77,7 @@ class IMGstruct:
     def quit(self):
         return self.img.close()
 
-    @staticmethod
-    def read_img(path: Path, options: Dict) -> AICSImage:
+    def read_img(self, path: Path, options: Dict) -> AICSImage:
         img = AICSImage(path)
         if not img.metadata:
             print("Metadata not found in input image")
@@ -125,7 +124,7 @@ class MaskStruct(IMGstruct):
         self.edge_cells = []
         self.cell_index = []
         self.bad_cells = []
-        self.ROI = []
+        self.ROI = self.__get_coordinates(options)
 
     def get_labels(self, label):
         return self.channel_labels.index(label)
@@ -207,6 +206,84 @@ class MaskStruct(IMGstruct):
     def get_ROI(self):
         return self.ROI
 
+    def __get_coordinates(self, options):
+        mask_channels = []
+        channel_coords = []
+
+        s, t, c, z, y, x = self.data.shape
+        mask_data = self.data
+
+        # find cell index - if not sequential
+        cell_num = np.unique(mask_data)
+        maxvalue = len(cell_num)
+        self.set_cell_index(cell_num[1:])
+
+        if maxvalue - 1 != np.max(mask_data):
+            cell_num_idx = np.arange(0, len(cell_num))
+            cell_num_dict = nb_populate_dict(cell_num, cell_num_idx)
+            fmask_data = mask_data.reshape(-1)
+
+            cell_num_index_map(fmask_data, cell_num_dict)
+
+            fmask_data = fmask_data.reshape((s, t, c, z, y, x))
+            self.set_data(fmask_data)
+            mask_data = self.data
+
+            cell_num = np.unique(mask_data)
+            maxvalue = len(cell_num)
+
+        assert (maxvalue - 1) == np.max(mask_data)
+
+        # post-process for edge case cell coordinates - only 1 point
+        freq = np.unique(mask_data[0, 0, 0, 0, :, :], return_counts=True)
+        idx = np.where(freq[1] < options.get("valid_cell_threshold"))[0].tolist()
+        self.set_bad_cells(idx)
+
+        mask_4D = mask_data[0, 0, :, :, :, :]
+
+        for i in range(0, mask_4D.shape[0]):
+            mask_channels.append(mask_4D[i, :, :, :])
+
+        unravel_indices(mask_channels, maxvalue, channel_coords)  # new
+        # npwhere(mask_channels, maxvalue, channel_coords_np) #old
+
+        return channel_coords
+
+    @nb.njit()
+    def __nb_populate_dict(self, cell_num, cell_num_idx):
+        d = nbDict.empty(nb.types.int64, nb.types.int64)
+
+        for i in range(0, len(cell_num)):
+            d[cell_num[i]] = cell_num_idx[i]
+
+        return d
+
+    @nb.njit(parallel=True)
+    def __cell_num_index_map(self, flat_mask: np.ndarray, cell_num_dict: Dict):
+        for i in nb.prange(0, len(flat_mask)):
+            flat_mask[i] = cell_num_dict.get(flat_mask[i])
+
+    def __unravel_indices(self, mask_channels, maxvalue, channel_coords):
+        for j in range(0, len(mask_channels)):
+            # might want to change this to pure numpy arrays
+            masked_imgs_coord = [[[], []] for i in range(maxvalue)]
+            labeled_mask = mask_channels[j]
+            rlabel_mask = labeled_mask[0, :, :].reshape(-1)
+            indices = np.arange(len(rlabel_mask))
+            indices = np.unravel_index(indices, (labeled_mask.shape[1], labeled_mask.shape[2]))
+
+            append_coord(masked_imgs_coord, rlabel_mask, indices)
+            masked_imgs_coord = list(map(np.asarray, masked_imgs_coord))
+
+            channel_coords.append(masked_imgs_coord)
+
+    # @nb.njit(parallel=True)
+    def __append_coord(self, masked_imgs_coord, rlabel_mask, indices):
+        for i in range(0, len(rlabel_mask)):
+            masked_imgs_coord[rlabel_mask[i]][0].append(indices[0][i])
+            masked_imgs_coord[rlabel_mask[i]][1].append(indices[1][i])
+
+        return
 
 class NumpyEncoder(json.JSONEncoder):
     """Custom encoder for numpy data types"""
