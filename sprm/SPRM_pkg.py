@@ -126,6 +126,8 @@ class MaskStruct(IMGstruct):
         self.bad_cells = []
         self.ROI = self.__get_coordinates(options)
 
+        __find_edge_cells()
+
     def get_labels(self, label):
         return self.channel_labels.index(label)
 
@@ -284,6 +286,40 @@ class MaskStruct(IMGstruct):
             masked_imgs_coord[rlabel_mask[i]][1].append(indices[1][i])
 
         return
+
+    def __find_edge_cells(self):
+        # 3D case
+        channels = self.get_data().shape[2]
+        bestz = self.get_bestz()[0]
+        data = self.get_data()[0, 0, :, bestz, :, :]
+        border = []
+        for i in range(0, channels):
+            border += list(data[i, 0, :-1])  # Top row (left to right), not the last element.
+            border += list(data[i, :-1, -1])  # Right column (top to bottom), not the last element.
+            border += list(data[i, -1, :0:-1])  # Bottom row (right to left), not the last element.
+            border += list(data[i, ::-1, 0])  # Left column (bottom to top), all elements element.
+
+        border = np.unique(border).tolist()
+        self.set_edge_cells(border)
+
+        sMask = self.get_data()[0, 0, 0, :, :, :]
+        unique = np.unique(sMask)[1:]
+        og_cell_idx = self.get_cell_index()
+
+        if (og_cell_idx == unique).all():
+            interiorCells = [i for i in unique if i not in border and i not in self.get_bad_cells()]
+            self.set_interior_cells(interiorCells)
+            self.set_cell_index(interiorCells)
+        else:
+            og_in_cell_idx = [
+                og
+                for og, new in zip(og_cell_idx, unique)
+                if new not in border and new not in self.get_bad_cells()
+            ]
+            interiorCells = [i for i in unique if i not in border and i not in self.get_bad_cells()]
+            self.set_interior_cells(interiorCells)
+            self.set_cell_index(og_in_cell_idx)
+
 
 class NumpyEncoder(json.JSONEncoder):
     """Custom encoder for numpy data types"""
