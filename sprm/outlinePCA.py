@@ -271,7 +271,7 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
         ROI_coords = cell_coords[interiorCells[i]]
 
         # tmask = np.zeros((cellmask.shape[1], cellmask.shape[0]))
-        # tmask[ROI_coords[0], ROI_coords[1]] = 1
+        # tmask[ROI_coordinates[0], ROI_coordinates[1]] = 1
         #
         # polyg = measure.find_contours(tmask, 0.5, fully_connected='low', positive_orientation='low')
         # # if find contours returns back an empty array

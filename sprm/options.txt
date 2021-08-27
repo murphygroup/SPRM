@@ -5,8 +5,8 @@ num_markers 3
 num_channelPCA_components 3
 num_outlinepoints 100
 num_shapeclusters silhouette 3 6
-precluster_sampling 0.07
-precluster_threshold 10000
+pre-cluster_sampling 0.07
+pre-cluster_threshold 10000
 skip_empty_mask 1
 reallocation_descent_rate 0.1
 reallocation_quit_criterion 0.0001
@@ -19,7 +19,7 @@ glcm_distances [1]
 skip_outlinePCA 0
 interior_cells_only 1
 normalize_bg 1
-zscore_norm 0
+z-score_norm 0
 skip_texture 1
 valid_cell_threshold 10
 tSNE_all_preprocess none zscore blockwise_zscore

@@ -126,7 +126,7 @@ class MaskStruct(IMGstruct):
         self.bad_cells = []
         self.ROI = self.__get_coordinates(options)
 
-        __find_edge_cells()
+        self.__find_edge_cells()
 
     def get_labels(self, label):
         return self.channel_labels.index(label)
@@ -2320,7 +2320,7 @@ def quality_measures(
 
         channels = im.get_channel_labels()
         # get cytoplasm coords
-        # cytoplasm = find_cytoplasm(ROI_coords)
+        # cytoplasm = find_cytoplasm(ROI_coordinates)
 
         # check / filter out 1-D coords - hot fix
         # cytoplasm_ndims = [x.ndim for x in cytoplasm]
@@ -2422,11 +2422,6 @@ def check_shape(im, mask):
         or im.get_data().shape[5] != mask.get_data().shape[5]
     )
 
-
-def reallocate_parallel(im, mask, ichan, options):
-    pass
-
-
 def reallocate_and_merge_intensities(im, mask, optional_img_file, options):
     # check if image needs to be resized to match mask
     if check_shape(im, mask):
@@ -2476,94 +2471,9 @@ def reallocate_and_merge_intensities(im, mask, optional_img_file, options):
     im_prune[nan_find] = 0
     im.set_data(im_prune)
 
-
-# def generate_fake_stackimg(im, mask, opt_img_file, options):
-#     #not for general purposes
-#
-#     c = im.get_data().shape[2]
-#     z, y, x = mask.get_data().shape[3], mask.get_data().shape[4], mask.get_data().shape[5]
-#
-#     im2 = IMGstruct(opt_img_file, options)
-#     channel_list = im.get_channel_labels()
-#     channel_list.extend(im2.get_channel_labels())
-#
-#     c2, z2 = im2.get_data().shape[2], im2.get_data().shape[3]
-#
-#     im2.quit()
-#
-#     print('Start of fake image creation')
-#     fake = np.random.choice([0, 100, 1000, 10000, 100000], size=(1, 1, c+c2, z+z2, y, x), p=[0.9, 0.025, 0.025, 0.025, 0.025])
-#     im.set_data(fake)
-#     im.set_channel_labels(channel_list)
-#     print('END')
-
-# def recluster(output_dir: Path, im: IMGstruct, options: Dict):
-#     filename = 'Recluster'
-#
-#     # features
-#     meanV = '*-cell_channel_mean.csv'
-#     covar = '*-cell_channel_covar.csv'
-#     totalV = '*-cell_channel_total.csv'
-#     # meanC = '*-cell_channel_meanAllChannels.csv'
-#     shapeV = '*-cell_shape.csv'
-#
-#     # read in and concatenate all feature csvs
-#     meanAll = get_paths(output_dir / meanV)
-#     covarAll = get_paths(output_dir / covar)
-#     totalAll = get_paths(output_dir / totalV)
-#     # meanCAll = get_paths(output_dir / meanC)
-#     shapeAll = get_paths(output_dir / shapeV)
-#
-#     for i in range(0, len(meanAll)):
-#         meanAll_read = pd.read_csv(meanAll[i])
-#         covarAll_read = pd.read_csv(covarAll[i])
-#         totalAll_read = pd.read_csv(totalAll[i])
-#         # meanCAll_read = pd.read_csv(meanCAll[i])
-#         shapeAll_read = pd.read_csv(shapeAll[i])
-#
-#         if i == 0:
-#             meanAll_pd = meanAll_read
-#             covarAll_pd = covarAll_read
-#             totalAll_pd = totalAll_read
-#             # meanCALL_pd = meanCAll_read
-#             shapeAll_pd = shapeAll_read
-#         else:
-#             meanAll_pd = pd.concat([meanAll_pd, meanAll_read], axis=1, sort=False)
-#             covarAll_pd = pd.concat([covarAll_pd, covarAll_read], axis=1, sort=False)
-#             totalAll_pd = pd.concat([totalAll_pd, totalAll_read], axis=1, sort=False)
-#             # meanCALL_pd = pd.concat([meanCALL_pd, meanCAll_read], axis=1, sort=False)
-#             shapeAll_pd = pd.concat([shapeAll_pd, shapeAll_read], axis=1, sort=False)
-#
-#     meanAll_np = meanAll_pd.to_numpy()
-#     covarAll_np = covarAll_pd.to_numpy()
-#     totalAll_np = totalAll_pd.to_numpy()
-#     # meanCALL_np = meanCALL_pd.to_numpy()
-#     shapeAll_np = shapeAll_pd.to_numpy()
-#
-#     print('Reclustering cells and getting back the labels and centers...')
-#     clustercells_uv, clustercells_uvcenters = cell_cluster(meanAll_np, options)
-#     clustercells_cov, clustercells_covcenters = cell_cluster(covarAll_np, options)
-#     clustercells_total, clustercells_totalcenters = cell_cluster(totalAll_np, options)
-#     clustercells_uvall, clustercells_uvallcenters = cell_cluster(meanAll_np, options)
-#     clustercells_shapevectors, shapeclcenters = shape_cluster(shapeAll_np, options)
-#
-#     print('Making legend for the recluster...')
-#     make_legends(im, filename, output_dir, options, clustercells_uvcenters, clustercells_covcenters,
-#                  clustercells_totalcenters, clustercells_uvallcenters,
-#                  shapeclcenters)
-#
-#     print('Writing out all cell cluster IDs for recluster cells...')
-#     cell_cluster_IDs(filename, output_dir, options, clustercells_uv, clustercells_cov, clustercells_total,
-#                      clustercells_uvall,
-#                      clustercells_shapevectors)
-
-
 def quality_control(mask: MaskStruct, img: IMGstruct, ROI_coords: List, options: Dict):
     # best z +- from options
     set_zdims(mask, img, options)
-
-    # find cells on edge
-    find_edge_cells(mask)
 
     # normalize bg intensities
     if options.get("normalize_bg"):
@@ -2736,16 +2646,16 @@ def glcm(
     # for i in range(0, 2):
     #     celllisty = nbList()
     #     celllistx = nbList()
-    #     for j in range(0, len(ROI_coords[0])):
-    #         celllistx.append(nbList(ROI_coords[i][j][0].tolist()))
-    #         celllisty.append(nbList(ROI_coords[i][j][1].tolist()))
+    #     for j in range(0, len(ROI_coordinates[0])):
+    #         celllistx.append(nbList(ROI_coordinates[i][j][0].tolist()))
+    #         celllisty.append(nbList(ROI_coordinates[i][j][1].tolist()))
     # masklistx.append(celllistx)
     # masklisty.append(celllisty)
 
     # l = []
     # for j in range(len(inCells)):
     #     # a = np.empty((2, imgog.shape[2]), dtype=np.ndarray)
-    #     t = ROI_coords[0][inCells[j]], ROI_coords[1][inCells[j]]
+    #     t = ROI_coordinates[0][inCells[j]], ROI_coordinates[1][inCells[j]]
     #     a = nb_ROI_crop(t, ogimg)
     # l.append(a)
 
@@ -2809,12 +2719,16 @@ def glcm(
     return texture_all, header
 
 
-def glcmProcedure(im, mask, output_dir, filename, ROI_coords, options):
+def glcmProcedure(im, mask, options):
     """
     Wrapper for GLCM
     """
 
     print("GLCM calculation initiated")
+
+    filename = im.get_name()
+    ROI_coordinates = mask.get_ROI()
+    output_dir =
 
     angle = options.get("glcm_angles")
     distances = options.get("glcm_distances")
@@ -2824,7 +2738,7 @@ def glcmProcedure(im, mask, output_dir, filename, ROI_coords, options):
     distances = [int(i) for i in distances]
     stime = time.monotonic()
     texture, texture_featureNames = glcm(
-        im, mask, output_dir, filename, options, angle, distances, ROI_coords
+        im, mask, output_dir, filename, options, angle, distances, ROI_coordinates
     )
     print("GLCM calculations completed: " + str(time.monotonic() - stime))
 
