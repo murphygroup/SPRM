@@ -1,8 +1,9 @@
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, List
 import numpy as np
 import numpy.typing as npt
 from .SPRM_pkg import *
+from .outlinePCA import getparametricoutline, getcellshapefeatures
 
 
 class Features:
@@ -14,9 +15,14 @@ class Features:
     def __init__(self, im: IMGstruct, mask, output_dir, options):
         self.output_directory = output_dir
         self.options = options
-        self.superpixels = self.voxel_cluster(im, options)
+
+        self.superpixels = self.voxel_cluster(im)
         self.PCA = self.cluster_channels(im, mask)
-        self.texture, self.texture_names = glcmProcedure(im, mask, options)
+
+        texture, texture_headers = glcmProcedure(im, mask)
+        self.texture = Feature(im.get_name + '_texture', texture.shape, texture_headers, texture)
+
+        outline_vectors, cell_polygons = getparametricoutline(mask, )
 
     def cluster_channels(self,
                          im: IMGstruct, mask: MaskStruct) -> np.ndarray:
@@ -128,7 +134,7 @@ class Features:
 
         return voxelbycluster_labels
 
-    def glcmProcedure(self, im: IMGstruct, mask: MaskStruct, options: dict):
+    def glcmProcedure(self, im: IMGstruct, mask: MaskStruct):
 
         """
         Wrapper for GLCM
@@ -136,15 +142,15 @@ class Features:
 
         print("GLCM calculation initiated")
 
-        angle = options.get("glcm_angles")
-        distances = options.get("glcm_distances")
+        angle = self.options.get("glcm_angles")
+        distances = self.options.get("glcm_distances")
         angle = "".join(angle)[1:-1].split(",")
         distances = "".join(distances)[1:-1].split(",")
         angle = [int(i) for i in angle][0]  # Only supports 0 for now
         distances = [int(i) for i in distances]
         stime = time.monotonic()
         texture, texture_names = self.__glcm(
-            im, mask, options, angle, distances)
+            im, mask, angle, distances)
         print("GLCM calculations completed: " + str(time.monotonic() - stime))
 
         return texture, texture_names
@@ -152,7 +158,6 @@ class Features:
     def __glcm(self,
                im,
                mask,
-               options,
                angle,
                distances,
                ):
@@ -237,7 +242,7 @@ class Features:
         ctexture = ctexture.reshape(len(inCells), -1)
 
         # For csv writing
-        write_2_csv(header, ctexture, filename + "_" + "texture", self.output_dir, cellidx, options)
+        write_2_csv(header, ctexture, filename + "_" + "texture", self.output_dir, cellidx, self.options)
 
         # add timepoint dim so that feature is in sync
         texture_all = texture_all[np.newaxis, :, :, :, :]
@@ -261,4 +266,7 @@ class Feature:
 
     name: str
     size: Tuple[int, ...]
+    column_headers: List[str, ...]
     feature: np.ndarray
+
+    def __post_init__(self):

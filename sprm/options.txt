@@ -30,3 +30,4 @@ cell_adj_parallel 0
 cell_graph 0
 cell_adj_dilation_itr 3
 sprm_segeval_both 0
+tSNE_components 2
