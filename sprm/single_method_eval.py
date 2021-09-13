@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 from math import prod
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
-
+import pandas as pd
 import numpy as np
 from PIL import Image
 from pint import Quantity, UnitRegistry
@@ -297,9 +297,15 @@ def get_quality_score(features, model):
     ss = model[0]
     pca = model[1]
     features_scaled = ss.transform(features)
+    features_scaled_pca = pca.transform(features_scaled)
+    loadings = pca.components_.T
+    
+    for i in range(loadings.shape[1]):
+        if np.sum(loadings[:, i]) < 0:
+            features_scaled_pca[0, i] = -features_scaled_pca[0, i]
     score = (
-        pca.transform(features_scaled)[0, 0] * pca.explained_variance_ratio_[0]
-        + pca.transform(features_scaled)[0, 1] * pca.explained_variance_ratio_[1]
+        features_scaled_pca[0, 0] * pca.explained_variance_ratio_[0]
+        + features_scaled_pca[0, 1] * pca.explained_variance_ratio_[1]
     )
     return score
 
