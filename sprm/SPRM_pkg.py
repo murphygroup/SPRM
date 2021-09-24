@@ -958,7 +958,8 @@ def AdjacencyMatrix(
     )
     with open(output_dir / (baseoutputfilename + "_AdjacencyMatrixRowColLabels.txt"), "w") as f:
         for i in range(numCells):
-            print(i, file=f)
+            f.write(i)
+            f.write('\n')
     # return adjacencyMatrix
 
 
@@ -1205,8 +1206,11 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
 
 
 def write_cell_polygs(
-    polyg_list: List[np.ndarray], cellidx: list, filename: str, output_dir: Path, options: Dict
+    mask: MaskStruct, polyg_list: List[np.ndarray], output_dir: Path, options: Dict
 ):
+    cell_index = mask.get_cell_index()
+    filename = im.get_name()
+
     coord_pairs = []
     for i in range(0, len(polyg_list)):
         tlist = str(
@@ -1214,7 +1218,7 @@ def write_cell_polygs(
         )
         coord_pairs.append(tlist)
 
-    df = pd.DataFrame({0: coord_pairs}, index=cellidx)
+    df = pd.DataFrame({0: coord_pairs}, index=cell_index)
     if options.get("debug"):
         print(df)
     f = output_dir / (filename + "-cell_polygons_spatial.csv")

@@ -241,12 +241,15 @@ def cell_coord_debug(mask, nseg, npoints):
         )
 
 
-def getparametricoutline(mask, nseg, ROI_by_CH, options):
+def getparametricoutline(mask, options):
     print("Getting parametric outlines...")
+
+    cell_channel = 0
+    ROI = mask.get_ROI()
 
     polygon_outlines = []
     # polygon_outlines1 = []
-    cellmask = mask.get_data()[0, 0, nseg, 0, :, :]
+    cellmask = mask.get_data()[0, 0, cell_channel, 0, :, :]
 
     interiorCells = mask.get_interior_cells()
 
@@ -258,9 +261,9 @@ def getparametricoutline(mask, nseg, ROI_by_CH, options):
     # pts = np.zeros((np.amax(cellmask), npoints * 2))
     pts = np.zeros((len(interiorCells), npoints * 2))
 
-    cell_coords = ROI_by_CH[0]
+    cell_coords = ROI[0]
 
-    cell_boundary = ROI_by_CH[2]
+    cell_boundary = ROI[2]
 
     # for i in range(1, np.amax(cellmask)+1):
     for i in range(len(interiorCells)):
