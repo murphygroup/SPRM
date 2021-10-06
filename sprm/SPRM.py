@@ -232,7 +232,7 @@ def main(
                 # masked_imgs_coord = get_masked_imgs(labeled_mask, maskIDs)
                 # make the matrix and vectors to hold calculations
 
-                masked_imgs_coord = ROI_coords[j]
+                masked_imgs_coord = mask.get_ROI()[j]
                 # get only the ROIs that are interior
                 masked_imgs_coord = [masked_imgs_coord[i] for i in inCells]
 

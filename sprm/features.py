@@ -22,15 +22,23 @@ class Feature:
         tSNE
     """
 
-    name: str
+    name: List[str, ...] = list
     size: Tuple[int, ...] = (0, 0)
     column_headers: List[str, ...] = list
     feature: np.ndarray = np.ndarray([])
     alternative_feature: np.ndarry = np.ndarray([])
+    clusters: np.ndarray = np.ndarray([])
+    legends: np.ndarray = np.ndarray([])
     flag: bool = False
 
     def __post_init__(self):
         pass
+
+    def set_feature(self, feature):
+        self.feature = feature
+
+    def get_feature(self, feature):
+        return self.feature
 
 
 class Features:
@@ -47,21 +55,31 @@ class Features:
 
         process_list = options.get("SPRM Process")
 
+        self.SNR = Feature(name=[(filename + "-SNR")], flag=process_list.get("snr"))
         self.superpixels = Feature(
-            name=(filename + "-Superpixels"), flag=process_list.get("Superpixel")
+            name=[(filename + "-Superpixels")], flag=process_list.get("Superpixel")
         )
-        self.PCA = Feature(name=(filename + "-Top3ChannelPCA"), flag=process_list.get("Top3PCA"))
-        self.texture = Feature(name=filename, flag=process_list.get("Texture"))
+        self.PCA = Feature(name=[(filename + "-Top3ChannelPCA")], flag=process_list.get("Top3PCA"))
+        self.texture = Feature(flag=process_list.get("Texture"))
         self.cell_polygons = Feature(
-            name=(filename + "-cell_polygons_spatial"), flag=process_list.get("CellPolygons")
+            name=[(filename + "-cell_polygons_spatial")], flag=process_list.get("CellPolygons")
         )
         self.shape_vectors = Feature(
-            name=(filename + "-cell_shape"), flag=process_list.get("ShapeVectors")
+            name=[(filename + "-cell_shape")], flag=process_list.get("ShapeVectors")
         )
+        self.mean_ALL = Feature(flag=process_list.get("meanALL"))
+        self.covariance_matrix = Feature(flag=process_list.get("covariance"))
+        self.mean_vector = Feature(flag=process_list.get("mean"))
+        self.total_intensity = Feature(flag=process_list.get("totalIntensity"))
+
+        #cell graphs
+        self.cell_center = Feature(name=[filename + 'cell_centers'], flag=process_list.get("cellCenters"), column_headers=["x", "y"])
+        self.cell_adjacency = Feature(flag=process_list.get("cellAdjacency"))
 
     def run(self):
 
-        self.superpixels = self.voxel_cluster(im, options)
+        self.voxel_cluster(self.im, self.options)
+
         self.PCA = self.cluster_channels(im, mask, output_directory, options)
 
         texture, texture_headers = glcmProcedure(im, mask, options)
@@ -126,12 +144,18 @@ class Features:
         cluster multichannel image into superpixels
         """
 
+        channel_data = im.get_data()[0, 0, :, :, :, :]
+        keep_shape = channel_data.shape
+
+        #check flag for true or false
+        if not self.PCA.flag:
+
+
+
         print("Clustering voxels into superpixels...")
         if im.get_data().shape[0] > 1:
             raise NotImplementedError("images with > 1 time point are not supported yet")
 
-        channel_data = im.get_data()[0, 0, :, :, :, :]
-        keep_shape = channel_data.shape
         channel_data = channel_data.reshape(
             channel_data.shape[0],
             channel_data.shape[1] * channel_data.shape[2] * channel_data.shape[3],

@@ -33,11 +33,20 @@
     "sprm_segeval_both": 2,
 
     "SPRM Process": {
-        "Superpixel" : 1,
-        "Top3PCA" : 1,
-        "Texture" : 0,
-        "ShapeVectors" : 1,
-        "CellPolygons" : 1,
+        "superpixel" : 1,
+        "snr": 1,
+        "top3PCA" : 1,
+        "texture" : 0,
+        "shapeVectors" : 1,
+        "cellPolygons" : 1,
+        "covariance" : 1,
+        "mean": 1,
+        "totalIntensity:" : 1,
+        "meanALL": 1,
+        "cellCenters": 1,
+        "cellAdjacency": 1,
+
+
 
 
 
