@@ -2,6 +2,7 @@ import importlib.resources
 import pickle
 import re
 from math import prod
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 import xmltodict
@@ -330,6 +331,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     except:
         thresholding_channels = range(img.data.shape[2])
         seg_channel_provided = False
+    print(seg_channel_provided)
     img_thresholded = sum(
         thresholding(np.squeeze(img.data[0, 0, c, bestz, :, :], axis=0))
         for c in thresholding_channels
