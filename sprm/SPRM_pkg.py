@@ -1673,7 +1673,6 @@ def clusterchannels(
                 pca_channels = PCA(
                     n_components=options.get("num_channelPCA_components"), svd_solver="randomized"
                 )
-                tries += 1
             else:
                 print("halving the dataset...")
                 n_samples = int(channvals.shape[0] / 2)
@@ -1684,6 +1683,7 @@ def clusterchannels(
                 # keepshape[3] = keepshape[3]/2
                 # pca_channels.fit(reduced_channvals)
                 # reducedim = pca_channels.transform(channvals)
+            tries += 1
 
     reducedim = m.transform(channvals_full)
     if options.get("debug"):
