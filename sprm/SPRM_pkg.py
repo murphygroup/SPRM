@@ -841,7 +841,6 @@ def get_coordinates(mask, options):
 def cell_graphs(
     mask: MaskStruct,
     ROI_coords: List[List[np.ndarray]],
-    inCells: List,
     fname: str,
     outputdir: Path,
     options: Dict,
@@ -872,7 +871,7 @@ def cell_graphs(
     cell_center_df.index.name = "ID"
 
     cell_center_df.to_csv(outputdir / (fname + "-cell_centers.csv"), header=["x", "y", "z"])
-    adj_cell_list(mask, ROI_coords, cell_center_df, inCells, fname, outputdir, options)
+    adj_cell_list(mask, ROI_coords, cell_center_df, fname, outputdir, options)
 
     # adj_cell_list(cellmask, fname, outputdir)
 
@@ -880,10 +879,9 @@ def cell_graphs(
 
 
 def adj_cell_list(
-    mask,
+    mask: MaskStruct,
     ROI_coords: List[np.ndarray],
     cell_center: np.ndarray,
-    inCells: list,
     fname: str,
     outputdir: Path,
     options: Dict,
@@ -899,10 +897,10 @@ def adj_cell_list(
 
     if options.get("cell_graph") == 1:
         if options.get("image_dimension") == "2D":
-            AdjacencyMatrix(mask, ROI_coords, cell_center, inCells, fname, outputdir, options)
+            AdjacencyMatrix(mask, ROI_coords, cell_center, fname, outputdir, options)
             # adjmatrix = AdjacencyMatrix(mask_data, edgecoords, interiorCells)
         else:  # 3D
-            AdjacencyMatrix_3D(mask, ROI_coords, cell_center, inCells, fname, outputdir, options)
+            AdjacencyMatrix_3D(mask, ROI_coords, cell_center, fname, outputdir, options)
         print("Runtime of adj matrix: ", time.monotonic() - stime)
     else:
         df = pd.DataFrame(np.zeros(1))
@@ -1111,13 +1109,12 @@ def AdjacencyMatrix_3D(
 
 
 def AdjacencyMatrix(
-    mask,
+    mask: MaskStruct,
     ROI_coords,
     cell_center: pd.DataFrame,
-    inCells: list,
     baseoutputfilename,
-    output_dir,
-    options: Dict,
+    output_dir: Path,
+    options: dict,
     window=None,
 ):
     """
@@ -1140,7 +1137,7 @@ def AdjacencyMatrix(
 
     # numCells = len(inCells)
     numCells = len(cellEdgeList)
-    cellidx = mask.get_cell_index()
+    cellidx = mask.cell_index
     # intCells = mask.get_interior_cells()
     # assert (numCells == intCells)
 
@@ -1157,7 +1154,7 @@ def AdjacencyMatrix(
     else:
         delta = len(window) + options.get("adj_matrix_delta")
 
-    maskImg = mask.get_data()[0, 0, loc, 0, :, :]
+    maskImg = mask.data[0, 0, loc, 0, :, :]
     # maskImg = mask.get_data()
 
     # #check if 3D or not
@@ -1169,7 +1166,7 @@ def AdjacencyMatrix(
 
     if paraopt == 1:
         cel = nbList(cellEdgeList)
-        windowCoords, windowSize, windowXY = nbget_windows(numCells, cel, inCells, delta, a, b)
+        windowCoords, windowSize, windowXY = nbget_windows(numCells, cel, delta, a, b)
     else:
         windowCoords, windowSize, windowXY = get_windows(numCells, cellEdgeList, delta, a, b)
 
@@ -1320,7 +1317,7 @@ def get_windows(numCells, cellEdgeList, delta, a, b):
 
 
 @nb.njit(parallel=True)
-def nbget_windows(numCells, cellEdgeList, inCells, delta, a, b):
+def nbget_windows(numCells, cellEdgeList, delta, a, b):
     windowCoords = nbList()
     windowSize = nbList()
     windowRange_xy = nbList()
@@ -1560,7 +1557,7 @@ def write_2_csv(header: List, sub_matrix, s: str, output_dir: Path, cellidx: lis
 def write_cell_polygs(
     polyg_list: List[np.ndarray],
     pts: np.ndarray,
-    cellidx: list,
+    cellidx: list[int],
     filename: str,
     output_dir: Path,
     options: Dict,
@@ -1639,7 +1636,7 @@ def build_vector(
 
 
 def clusterchannels(
-    im: IMGstruct, fname: str, output_dir: Path, inCells: list, options: Dict
+    im: IMGstruct, fname: str, output_dir: Path, interior_cells: list, options: Dict
 ) -> np.ndarray:
     """
     cluster all channels using PCA
@@ -1648,7 +1645,7 @@ def clusterchannels(
     if options.get("debug"):
         print("Image dimensions before reduction: ", im.get_data().shape)
     pca_channels = PCA(n_components=options.get("num_channelPCA_components"))
-    channvals = im.get_data()[0, 0, :, :, :, :]
+    channvals = im.data[0, 0, :, :, :, :]
     keepshape = channvals.shape
     channvals = channvals.reshape(
         channvals.shape[0], channvals.shape[1] * channvals.shape[2] * channvals.shape[3]
@@ -1701,7 +1698,7 @@ def clusterchannels(
     b = abs(pca_channels.components_)
     c = np.column_stack((b, a))
 
-    write_2_file(c, fname + "-channelPCA_summary", im, output_dir, inCells, options)
+    write_2_file(c, fname + "-channelPCA_summary", im, output_dir, options)
 
     return reducedim
 
@@ -2767,7 +2764,6 @@ def cell_analysis(
     bestz: int,
     output_dir: Path,
     seg_n: int,
-    cellidx: list,
     options: Dict,
     celltype_labels: Optional[pd.DataFrame],
     df_all_cluster_list: list[pd.DataFrame],
@@ -2812,7 +2808,7 @@ def cell_analysis(
         "mean-all",
         options,
         output_dir,
-        cellidx,
+        mask.cell_index,
         df_all_cluster_list,
     )  # -1 means use all segmentations
 
@@ -2827,7 +2823,7 @@ def cell_analysis(
         "texture",
         options,
         output_dir,
-        cellidx,
+        mask.cell_index,
         df_all_cluster_list,
     )
 
@@ -2851,7 +2847,7 @@ def cell_analysis(
             "shape-unnorm",
             options,
             output_dir,
-            cellidx,
+            mask.cell_index,
             df_all_cluster_list,
         )
         # clustercells_shape = cell_map(mask, clustercells_shapevectors, seg_n, options)
@@ -2863,7 +2859,7 @@ def cell_analysis(
             "shape-norm",
             options,
             output_dir,
-            cellidx,
+            mask.cell_index,
             df_all_cluster_list,
         )
         # clustercells_norm_shape = cell_map(mask, clustercells_norm_shapevectors, seg_n, options)
@@ -2878,7 +2874,7 @@ def cell_analysis(
         all_clusters=all_clusters,
         types_list=types_list,
         filename=filename,
-        cellidx=cellidx,
+        cellidx=mask.cell_index,
         output_dir=output_dir,
         options=options,
         df_all_cluster_list=df_all_cluster_list,
@@ -2913,7 +2909,7 @@ def cell_analysis(
             "mean-" + maskchs[i],
             options,
             output_dir,
-            cellidx,
+            mask.cell_index,
             df_all_cluster_list,
         )
         clustercells_cov, clustercells_covcenters = cell_cluster(
@@ -2923,7 +2919,7 @@ def cell_analysis(
             "covar-" + maskchs[i],
             options,
             output_dir,
-            cellidx,
+            mask.cell_index,
             df_all_cluster_list,
         )
         clustercells_total, clustercells_totalcenters = cell_cluster(
@@ -2933,7 +2929,7 @@ def cell_analysis(
             "total-" + maskchs[i],
             options,
             output_dir,
-            cellidx,
+            mask.cell_index,
             df_all_cluster_list,
         )
 
@@ -2954,7 +2950,7 @@ def cell_analysis(
             output_dir=output_dir,
             i=i,
             maskchn=maskchs,
-            inCells=cellidx,
+            inCells=mask.cell_index,
             options=options,
             mean_cluster_data=clustercells_uvcenters,
             cov_cluster_data=clustercells_covcenters,
@@ -2989,13 +2985,13 @@ def cell_analysis(
                 "K-Means [Shape-Vectors Normalized]"
             ] = clustercells_norm_shapevectors
 
-        all_cluster_df = pd.DataFrame(cluster_vector_dict, index=cellidx)
+        all_cluster_df = pd.DataFrame(cluster_vector_dict, index=mask.cell_index)
         clusterids_df = cell_cluster_IDs(
             filename=filename,
             output_dir=output_dir,
             i=i,
             maskchs=maskchs,
-            inCells=cellidx,
+            inCells=mask.cell_index,
             options=options,
             celltype_labels=celltype_labels,
             df_all_cluster_list=df_all_cluster_list,
@@ -3056,7 +3052,7 @@ def cell_analysis(
         filename + "clustering" + options.get("num_cellclusters")[0] + "Scores",
         im,
         output_dir,
-        cellidx,
+        mask.cell_index,
         options,
     )
 
@@ -3776,9 +3772,6 @@ def quality_control(mask: MaskStruct, img: IMGstruct, ROI_coords: List, options:
     # best z +- from options
     set_zdims(mask, img, options)
 
-    # find cells on edge
-    find_edge_cells(mask)
-
     # check to see if image is normalized aka no negative values
     normalize_image(img)
 
@@ -3864,56 +3857,6 @@ def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
         mask.set_data(new_mask)
         mask.set_bestz([0])  # set best z back to 0 since we deleted some zstacks
         img.set_data(new_img)
-
-
-def find_edge_cells(mask):
-    z = mask.get_data().shape[3]
-    channels = mask.get_data().shape[2]
-    data = mask.get_data()[0, 0, 0, :, :, :]
-    border = []
-
-    if z > 1:  # 3D case
-        for i in range(0, z):
-            border += list(data[i, 0, :-1])  # Top row (left to right), not the last element.
-            border += list(data[i, :-1, -1])  # Right column (top to bottom), not the last element.
-            border += list(data[i, -1, :0:-1])  # Bottom row (right to left), not the last element.
-            border += list(data[i, ::-1, 0])  # Left column (bottom to top), all elements element.
-
-    else:  # 2D case
-        bestz = mask.get_bestz()[0]
-        data = mask.get_data()[0, 0, :, bestz, :, :]
-
-        for i in range(0, channels):
-            border += list(data[i, 0, :-1])  # Top row (left to right), not the last element.
-            border += list(data[i, :-1, -1])  # Right column (top to bottom), not the last element.
-            border += list(data[i, -1, :0:-1])  # Bottom row (right to left), not the last element.
-            border += list(data[i, ::-1, 0])  # Left column (bottom to top), all elements element.
-
-    border = np.unique(border).tolist()
-    mask.set_edge_cells(border)
-
-    sMask = mask.get_data()[0, 0, 0, :, :, :]
-    unique = np.unique(sMask)[1:]
-    og_cell_idx = mask.get_cell_index()
-
-    # 3D case
-    # if z > 1:
-    #     pass
-    # else:  # 2D case
-
-    if (og_cell_idx == unique).all():
-        interiorCells = [i for i in unique if i not in border and i not in mask.get_bad_cells()]
-        mask.set_interior_cells(interiorCells)
-        mask.set_cell_index(interiorCells)
-    else:
-        og_in_cell_idx = [
-            og
-            for og, new in zip(og_cell_idx, unique)
-            if new not in border and new not in mask.get_bad_cells()
-        ]
-        interiorCells = [i for i in unique if i not in border and i not in mask.get_bad_cells()]
-        mask.set_interior_cells(interiorCells)
-        mask.set_cell_index(og_in_cell_idx)
 
 
 # @nb.njit()

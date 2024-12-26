@@ -318,7 +318,7 @@ def create_polygons(mask: MaskStruct, bestz: int) -> List[str]:
 def cell_coord_debug(mask: MaskStruct, nseg, npoints):
     polyg_list = []
     temp_list = []
-    cellmask = mask.get_data()[0, 0, nseg, 0, :, :]
+    cellmask = mask.data[0, 0, nseg, 0, :, :]
 
     for i in range(1, 20):
         coor = np.where(cellmask == i)

@@ -21,6 +21,8 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
+from .data_structures import MaskStruct
+
 """
 Companion to SPRM.py
 Package functions that evaluate a single segmentation method
@@ -185,35 +187,27 @@ def weighted_by_cluster(vector, labels):
     return weighted_average
 
 
-def cell_size_uniformity(mask):
-    cell_coord = get_indices_sparse(mask)[1:]
-    cell_coord_num = len(cell_coord)
+def cell_size_uniformity(cell_coords, mask):
     cell_size = []
-    for i in range(cell_coord_num):
-        cell_size_current = len(cell_coord[i][0])
+    for cell_coord in cell_coords:
+        cell_size_current = len(cell_coord[0])
         if cell_size_current != 0:
             cell_size.append(cell_size_current)
     cell_size_std = np.std(np.expand_dims(np.array(cell_size), 1))
     return cell_size_std
 
 
-def cell_type(mask, channels):
+def cell_type(cell_coords, expr_data: np.ndarray):
     label_list = []
-    n = len(channels)
-    cell_coord = get_indices_sparse(mask)[1:]
-    cell_coord_num = len(cell_coord)
     ss = StandardScaler()
     feature_matrix_z_pieces = []
-    for i in range(n):
-        channel = channels[i]
+    for channel in expr_data:
         channel_z = ss.fit_transform(channel)
         cell_intensity_z = []
-        for j in range(cell_coord_num):
-            cell_size_current = len(cell_coord[j][0])
+        for cell_coord in cell_coords:
+            cell_size_current = len(cell_coord[0])
             if cell_size_current != 0:
-                single_cell_intensity_z = (
-                    np.sum(channel_z[tuple(cell_coord[j])]) / cell_size_current
-                )
+                single_cell_intensity_z = np.sum(channel_z[tuple(cell_coord)]) / cell_size_current
                 cell_intensity_z.append(single_cell_intensity_z)
         feature_matrix_z_pieces.append(cell_intensity_z)
 
@@ -224,25 +218,19 @@ def cell_type(mask, channels):
     return label_list
 
 
-def cell_uniformity(mask, channels, label_list):
-    n = len(channels)
-    cell_coord = get_indices_sparse(mask)[1:]
-    cell_coord_num = len(cell_coord)
+def cell_uniformity(cell_coords, expr_data, label_list):
     ss = StandardScaler()
     feature_matrix_pieces = []
     feature_matrix_z_pieces = []
-    for i in range(n):
-        channel = channels[i]
+    for channel in expr_data:
         channel_z = ss.fit_transform(channel)
         cell_intensity = []
         cell_intensity_z = []
-        for j in range(cell_coord_num):
-            cell_size_current = len(cell_coord[j][0])
+        for cell_coord in cell_coords:
+            cell_size_current = len(cell_coord[0])
             if cell_size_current != 0:
-                single_cell_intensity = np.sum(channel[tuple(cell_coord[j])]) / cell_size_current
-                single_cell_intensity_z = (
-                    np.sum(channel_z[tuple(cell_coord[j])]) / cell_size_current
-                )
+                single_cell_intensity = np.sum(channel[tuple(cell_coord)]) / cell_size_current
+                single_cell_intensity_z = np.sum(channel_z[tuple(cell_coord)]) / cell_size_current
                 cell_intensity.append(single_cell_intensity)
                 cell_intensity_z.append(single_cell_intensity_z)
         feature_matrix_pieces.append(cell_intensity)
@@ -254,8 +242,7 @@ def cell_uniformity(mask, channels, label_list):
     fraction = []
     silhouette = []
 
-    for c in range(1, 11):
-        labels = label_list[c - 1]
+    for c, labels in zip(range(1, 11), label_list):
         CV_current = []
         fraction_current = []
         if c == 1:
@@ -360,7 +347,25 @@ def get_quality_score(features, model):
     return score
 
 
-def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], float, float]:
+def get_channel_pixel_coords(mask_data: np.ndarray, mask_obj: MaskStruct):
+    """
+    List index levels:
+    - Cell
+      - X or Y
+        - Distinct pixels in the cell
+    """
+    cell_coord_all = get_indices_sparse(mask_data)
+    cell_coords = [
+        coords
+        for coords, usable in zip(cell_coord_all, mask_obj.get_cell_selection_vector())
+        if usable
+    ]
+    return cell_coords
+
+
+def single_method_eval(
+    img, mask: MaskStruct, output_dir: Path
+) -> Tuple[Dict[str, Any], float, float]:
     print("Calculating single-method metrics v1.5 for", img.path)
     # get best z slice for future use
     bestz = mask.bestz
@@ -371,9 +376,11 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     nuclear_matched_mask = matched_mask[1]
     cell_outside_nucleus_mask = cell_matched_mask - nuclear_matched_mask
 
-    metric_mask = np.expand_dims(cell_matched_mask, 0)
-    metric_mask = np.vstack((metric_mask, np.expand_dims(nuclear_matched_mask, 0)))
-    metric_mask = np.vstack((metric_mask, np.expand_dims(cell_outside_nucleus_mask, 0)))
+    metric_channels = [
+        ("Matched Cell", cell_matched_mask),
+        ("Nucleus (including nuclear membrane)", nuclear_matched_mask),
+        ("Cell Not Including Nucleus (cell membrane plus cytoplasm)", cell_outside_nucleus_mask),
+    ]
 
     # separate image foreground background
     try:
@@ -403,18 +410,13 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
     fg_bg_image = Image.fromarray(img_binary.astype(np.uint8) * 255, mode="L").convert("1")
     fg_bg_image.save(output_dir / f"{img.name}_img_binary.png")
 
-    # set mask channel names
-    channel_names = [
-        "Matched Cell",
-        "Nucleus (including nuclear membrane)",
-        "Cell Not Including Nucleus (cell membrane plus cytoplasm)",
-    ]
     metrics = {}
-    for channel in range(metric_mask.shape[0]):
-        current_mask = metric_mask[channel]
+    for channel_name, current_mask in metric_channels:
+        channel_pixel_coords = get_channel_pixel_coords(current_mask, mask)
         mask_binary = np.sign(current_mask)
-        metrics[channel_names[channel]] = {}
-        if channel_names[channel] == "Matched Cell":
+        metrics[channel_name] = {}
+        # TODO: fix iteration with big immediate if/else
+        if channel_name == "Matched Cell":
             mask_xmldict = xmltodict.parse(mask.img.metadata.to_xml())
             try:
                 matched_fraction = mask_xmldict["OME"]["StructuredAnnotations"]["XMLAnnotation"][
@@ -437,7 +439,7 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
 
             # calculate the standard deviation of cell size
 
-            cell_size_std = cell_size_uniformity(current_mask)
+            cell_size_std = cell_size_uniformity(channel_pixel_coords, current_mask)
 
             # get coverage metrics
             foreground_fraction, background_fraction, mask_foreground_fraction = fraction(
@@ -450,50 +452,40 @@ def single_method_eval(img, mask, output_dir: Path) -> Tuple[Dict[str, Any], flo
                 img_binary, mask_binary, img_channels
             )
             background_CV, background_PCA = background_uniformity(img_binary, img_channels)
-            metrics[channel_names[channel]][
+            metrics[channel_name][
                 "NumberOfCellsPer100SquareMicrons"
             ] = cell_num_normalized.magnitude
-            metrics[channel_names[channel]][
-                "FractionOfForegroundOccupiedByCells"
-            ] = foreground_fraction
-            metrics[channel_names[channel]]["1-FractionOfBackgroundOccupiedByCells"] = (
+            metrics[channel_name]["FractionOfForegroundOccupiedByCells"] = foreground_fraction
+            metrics[channel_name]["1-FractionOfBackgroundOccupiedByCells"] = (
                 1 - background_fraction
             )
-            metrics[channel_names[channel]][
-                "FractionOfCellMaskInForeground"
-            ] = mask_foreground_fraction
-            metrics[channel_names[channel]]["1/(ln(StandardDeviationOfCellSize)+1)"] = 1 / (
+            metrics[channel_name]["FractionOfCellMaskInForeground"] = mask_foreground_fraction
+            metrics[channel_name]["1/(ln(StandardDeviationOfCellSize)+1)"] = 1 / (
                 np.log(cell_size_std) + 1
             )
-            metrics[channel_names[channel]]["FractionOfMatchedCellsAndNuclei"] = matched_fraction
-            metrics[channel_names[channel]]["1/(AvgCVForegroundOutsideCells+1)"] = 1 / (
-                foreground_CV + 1
-            )
-            metrics[channel_names[channel]][
-                "FractionOfFirstPCForegroundOutsideCells"
-            ] = foreground_PCA
+            metrics[channel_name]["FractionOfMatchedCellsAndNuclei"] = matched_fraction
+            metrics[channel_name]["1/(AvgCVForegroundOutsideCells+1)"] = 1 / (foreground_CV + 1)
+            metrics[channel_name]["FractionOfFirstPCForegroundOutsideCells"] = foreground_PCA
 
             # get cell type labels
-            cell_type_labels = cell_type(current_mask, img_channels)
+            cell_type_labels = cell_type(channel_pixel_coords, img_channels)
         else:
             img_channels = np.squeeze(img.data[0, 0, :, bestz, :, :], axis=0)
             # get cell uniformity
             cell_CV, cell_fraction, cell_silhouette = cell_uniformity(
-                current_mask, img_channels, cell_type_labels
+                channel_pixel_coords, img_channels, cell_type_labels
             )
             avg_cell_CV = np.average(cell_CV)
             avg_cell_fraction = np.average(cell_fraction)
             avg_cell_silhouette = np.average(cell_silhouette)
 
-            metrics[channel_names[channel]][
+            metrics[channel_name][
                 "1/(AvgOfWeightedAvgCVMeanCellIntensitiesOver1~10NumberOfClusters+1)"
             ] = 1 / (avg_cell_CV + 1)
-            metrics[channel_names[channel]][
+            metrics[channel_name][
                 "AvgOfWeightedAvgFractionOfFirstPCMeanCellIntensitiesOver1~10NumberOfClusters"
             ] = avg_cell_fraction
-            metrics[channel_names[channel]][
-                "AvgSilhouetteOver2~10NumberOfClusters"
-            ] = avg_cell_silhouette
+            metrics[channel_name]["AvgSilhouetteOver2~10NumberOfClusters"] = avg_cell_silhouette
 
     metrics_flat = np.expand_dims(flatten_dict(metrics), 0)
     with importlib.resources.open_binary("sprm", "pca.pickle") as f:

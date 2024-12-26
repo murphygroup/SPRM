@@ -87,7 +87,7 @@ def analysis(
 
     im = IMGstruct(img_file, options)
     if options.get("debug"):
-        print("Image dimensions: ", im.get_data().shape)
+        print("Image dimensions: ", im.data.shape)
 
     # init cell features
     covar_matrix = []
@@ -189,12 +189,10 @@ def analysis(
             pca_recon(norm_shape_vectors, 1, pca, baseoutputfilename, output_dir)
             # pca_cluster_shape(shape_vectors, cell_polygons, output_dir, options)  # just for testing
 
-        cellidx = mask.get_cell_index()
-
         write_cell_polygs(
             cell_polygons,
             outline_vectors,
-            cellidx,
+            mask.cell_index,
             baseoutputfilename,
             output_dir,
             options,
@@ -202,16 +200,11 @@ def analysis(
     else:
         print("Skipping outlinePCA...")
 
-    # get cells to be processed
-    inCells = mask.get_interior_cells()
-    cellidx = mask.get_cell_index()
-    cell_count = len(inCells)
-
     # save cell graphs
-    cell_graphs(mask, ROI_coords, inCells, baseoutputfilename, output_dir, options)
+    cell_graphs(mask, ROI_coords, mask.interior_cells, baseoutputfilename, output_dir, options)
 
     # signal to noise ratio of the image
-    SNR(im, baseoutputfilename, output_dir, cellidx, options)
+    SNR(im, baseoutputfilename, output_dir, mask.cell_index, options)
 
     bestz = mask.get_bestz()
     # empty mask skip tile
@@ -236,7 +229,9 @@ def analysis(
         plot_img(superpixels, bestz, baseoutputfilename + "-Superpixels.png", output_dir, options)
 
         # do PCA on the channel values to find channel components
-        reducedim = clusterchannels(im, baseoutputfilename, output_dir, inCells, options)
+        reducedim = clusterchannels(
+            im, baseoutputfilename, output_dir, mask.interior_cells, options
+        )
         PCA_img = plotprincomp(
             reducedim, bestz, baseoutputfilename + "-Top3ChannelPCA.png", output_dir, options
         )
@@ -253,7 +248,7 @@ def analysis(
     if options.get("skip_texture"):
         # make fake textures matrix - all zeros
         textures = [
-            np.zeros((1, 2, cell_count, len(im.channel_labels) * 6, 1)),
+            np.zeros((1, 2, len(mask.cell_count), len(im.channel_labels) * 6, 1)),
             im.channel_labels * 12,
         ]
         # save it
@@ -261,7 +256,7 @@ def analysis(
             df = pd.DataFrame(
                 textures[0][0, i, :, :, 0],
                 columns=textures[1][: len(im.channel_labels) * 6],
-                index=list(range(1, len(inCells) + 1)),
+                index=list(range(1, mask.cell_count + 1)),
             )
             df.index.name = "ID"
             df.to_csv(
@@ -271,9 +266,9 @@ def analysis(
         textures = glcmProcedure(im, mask, output_dir, baseoutputfilename, ROI_coords, options)
 
     # time point loop (don't expect multiple time points)
-    for t in range(0, im.get_data().shape[1]):
+    for t in range(0, im.data.shape[1]):
         # loop of types of segmentation (channels in the mask img)
-        for j in range(0, mask.get_data().shape[2]):
+        for j in range(0, mask.data.shape[2]):
             # get the mask for this particular segmentation
             # (e.g., cells, nuclei...)
             # labeled_mask, maskIDs = mask_img(mask, j)
@@ -284,7 +279,7 @@ def analysis(
 
             masked_imgs_coord = ROI_coords[j]
             # get only the ROIs that are interior
-            masked_imgs_coord = [masked_imgs_coord[i] for i in inCells]
+            masked_imgs_coord = [masked_imgs_coord[i] for i in mask.cell_index]
 
             covar_matrix = build_matrix(im, mask, masked_imgs_coord, j, covar_matrix)
             mean_vector = build_vector(im, mask, masked_imgs_coord, j, mean_vector)
@@ -304,7 +299,6 @@ def analysis(
             im=im,
             mask=mask,
             output_dir=output_dir,
-            cellidx=cellidx,
             options=options,
             mean_vector=mean_vector,
             covar_matrix=covar_matrix,
@@ -321,7 +315,6 @@ def analysis(
             bestz=bestz,
             output_dir=output_dir,
             seg_n=seg_n,
-            cellidx=cellidx,
             options=options,
             celltype_labels=celltype_labels,
             df_all_cluster_list=df_all_cluster_list,

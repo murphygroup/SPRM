@@ -22,14 +22,8 @@ class IMGstruct:
         self.name = path.name
         self.channel_labels = self.read_channel_names()
 
-    def set_data(self, data):
-        self.data = data
-
     def set_img(self, img):
         self.img = img
-
-    def get_data(self):
-        return self.data
 
     def get_meta(self):
         return self.img.metadata
@@ -112,14 +106,16 @@ class MaskStruct(IMGstruct):
     Main structure for segmentation information
     """
 
+    all_cells: set[int]
+    interior_cells: set[int]
+    bad_cells: set[int]
+
     def __init__(self, path: Path, options):
         super().__init__(path, options)
         self.bestz = self.get_bestz()
-        self.interior_cells = []
-        self.edge_cells = []
-        self.cell_index = []
         self.bad_cells = set()
         self.ROI = []
+        self.find_edge_cells()
 
     def read_channel_names(self):
         img: AICSImage = self.img
@@ -197,32 +193,26 @@ class MaskStruct(IMGstruct):
 
         return data
 
-    def add_edge_cell(self, ncell):
-        self.edge_cells.append(ncell)
+    @property
+    def usable_cells(self) -> set[int]:
+        return self.interior_cells - self.bad_cells
 
-    def set_edge_cells(self, listofcells):
-        self.edge_cells = listofcells
+    @property
+    def cell_index(self) -> list[int]:
+        return sorted(self.usable_cells)
 
-    def get_edge_cells(self):
-        return self.edge_cells
+    @property
+    def cell_count(self) -> int:
+        return len(self.usable_cells)
 
-    def set_interior_cells(self, listofincells):
-        self.interior_cells = listofincells
-
-    def get_interior_cells(self):
-        return self.interior_cells
-
-    def set_cell_index(self, cellindex):
-        self.cell_index = cellindex
-
-    def get_cell_index(self):
-        return self.cell_index
-
-    def set_bad_cells(self, bcells):
-        self.bad_cells = bcells
-
-    def get_bad_cells(self):
-        return self.bad_cells
+    def get_cell_selection_vector(self) -> np.ndarray:
+        """
+        Returns a boolean vector for selecting usable cells (interior,
+        didn't fail outline PCA computation) in a sorted vector or list
+        of all distinct pixel values in the mask (including 0 for
+        background pixels not in any cell).
+        """
+        return np.array([idx in self.usable_cells for idx in sorted(self.all_cells | {0})])
 
     def add_bad_cell(self, cell_index):
         self.bad_cells.add(cell_index)
@@ -236,15 +226,43 @@ class MaskStruct(IMGstruct):
     def get_ROI(self):
         return self.ROI
 
-    # def quit(self):
-    #     self.img = None
-    #     self.data = None
-    #     self.path = None
-    #     self.name = None
-    #     self.channel_labels = None
-    #     self.bestz = None
-    #     self.interior_cells = None
-    #     self.edge_cells = None
-    #     self.bad_cells = None
-    #     self.cell_index = None
-    #     self.ROI = None
+    def find_edge_cells(self):
+        z = self.data.shape[3]
+        channels = self.data.shape[2]
+        data = self.data[0, 0, 0, :, :, :]
+        border = set()
+
+        if z > 1:  # 3D case
+            for i in range(0, z):
+                border.update(data[i, 0, :-1])  # Top row (left to right), not the last element.
+                border.update(
+                    data[i, :-1, -1]
+                )  # Right column (top to bottom), not the last element.
+                border.update(
+                    data[i, -1, :0:-1]
+                )  # Bottom row (right to left), not the last element.
+                border.update(
+                    data[i, ::-1, 0]
+                )  # Left column (bottom to top), all elements element.
+
+        else:  # 2D case
+            bestz = self.get_bestz()[0]
+            data = self.data[0, 0, :, bestz, :, :]
+
+            for i in range(0, channels):
+                border.update(data[i, 0, :-1])  # Top row (left to right), not the last element.
+                border.update(
+                    data[i, :-1, -1]
+                )  # Right column (top to bottom), not the last element.
+                border.update(
+                    data[i, -1, :0:-1]
+                )  # Bottom row (right to left), not the last element.
+                border.update(
+                    data[i, ::-1, 0]
+                )  # Left column (bottom to top), all elements element.
+
+        self.edge_cells = border - {0}
+
+        mask_data = self.data[0, 0, 0, :, :, :]
+        self.all_cells = set(mask_data.flat) - {0}
+        self.interior_cells = self.all_cells - border

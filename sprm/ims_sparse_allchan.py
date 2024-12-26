@@ -7,6 +7,8 @@ import numpy as np
 from scipy.sparse import coo_matrix, find, lil_matrix
 from sklearn import preprocessing
 
+from sprm.data_structures import IMGstruct
+
 """
 
 Package for reallocating intensity from IMS image of lower resolution
@@ -508,7 +510,7 @@ def getindexlists(cellArea: np.ndarray, A: lil_matrix):
     return nonemptycellindices, A_nnz
 
 
-def reallocateIMS(im, ROI, X, A, cellArea, reducedsize, options):
+def reallocateIMS(im: IMGstruct, ROI, X, A, cellArea, reducedsize, options):
     # M   2D intensity image from IMS of size n1 x n2
     # ROI 2D mask (indexed) image of the same field as M
     # descentrate initial rate at which adjustments should be made
@@ -525,17 +527,10 @@ def reallocateIMS(im, ROI, X, A, cellArea, reducedsize, options):
     # ROI = mask.get_data()[0, 0, 0, 0, :, :]  # assume chan 0 is the cell mask
     drate = descentrate  # set initial descent rate
     # M is all channels
-    M = im.get_data()[0, 0, :, 0, :, :]
-    # M = im.get_data()[0, 0, ichan, 0, :, :]
+    M = im.data[0, 0, :, 0, :, :]
 
     boolnp = np.isnan(M)
     M[boolnp] = 0
-
-    outfile = "temp"
-    # plt.imshow(M)
-    # plt.savefig(outfile + 'ims.png')
-    # plt.imshow(ROI)
-    # plt.savefig('cellmask.png')
 
     Mshape = M.shape  # 3D
     ROIshape = ROI.shape
