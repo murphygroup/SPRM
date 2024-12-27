@@ -80,6 +80,8 @@ def uniformity_CV(loc, channels):
     n = len(channels)
     for i in range(n):
         channel = channels[i]
+        if not np.sum(channel):
+            continue
         channel = channel / np.mean(channel)
         intensity = channel[tuple(loc.T)]
         CV.append(np.std(intensity))
