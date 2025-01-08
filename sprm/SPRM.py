@@ -230,10 +230,18 @@ def analysis(
 
         # do PCA on the channel values to find channel components
         reducedim = clusterchannels(
-            im, baseoutputfilename, output_dir, mask.interior_cells, options
+            im=im,
+            mask=mask,
+            fname=baseoutputfilename,
+            output_dir=output_dir,
+            options=options,
         )
         PCA_img = plotprincomp(
-            reducedim, bestz, baseoutputfilename + "-Top3ChannelPCA.png", output_dir, options
+            reducedim,
+            bestz,
+            baseoutputfilename + "-Top3ChannelPCA.png",
+            output_dir,
+            options,
         )
 
         # writing out as a ometiff file of visualizations by channels
