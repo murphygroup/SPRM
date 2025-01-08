@@ -365,9 +365,7 @@ def get_parametric_outline(mask: MaskStruct, nseg, ROI_by_CH, options):
 
     polygon_outlines = []
     # polygon_outlines1 = []
-    cellmask = mask.get_data()[0, 0, nseg, 0, :, :]
-
-    interiorCells = mask.get_interior_cells()
+    cellmask = mask.data[0, 0, nseg, 0, :, :]
 
     # if options.get("num_outlinepoints") > np.amax(cellmask):
     #     options["num_outlinepoints"] = min(np.max(cellmask), options.get("num_outlinepoints"))
@@ -375,19 +373,19 @@ def get_parametric_outline(mask: MaskStruct, nseg, ROI_by_CH, options):
     npoints = options.get("num_outlinepoints")
     # the second dimension accounts for x & y coordinates for each point
     # pts = np.zeros((np.amax(cellmask), npoints * 2))
-    pts = np.zeros((len(interiorCells), npoints * 2 + 1))
+    pts = np.zeros((len(mask.interior_cells), npoints * 2 + 1))
 
     cell_coords = ROI_by_CH[0]
 
     cell_boundary = ROI_by_CH[2]
 
     # for i in range(1, np.amax(cellmask)+1):
-    for i in range(len(interiorCells)):
+    for i, cell in enumerate(mask.cell_index):
         # if i not in cellmask:
         #    continue
         # coor = np.where(cellmask == i)
 
-        ROI_coords = cell_coords[interiorCells[i]]
+        ROI_coords = cell_coords[cell]
 
         # tmask = np.zeros((cellmask.shape[1], cellmask.shape[0]))
         # tmask[ROI_coords[0], ROI_coords[1]] = 1
@@ -430,16 +428,16 @@ def get_parametric_outline(mask: MaskStruct, nseg, ROI_by_CH, options):
 
         if np.isnan(ptscov).any():
             if options.get("debug"):
-                print(interiorCells[i])
+                print(cell)
                 print(ptscov)
                 print(ptscentered)
-                cw = np.where(cellmask == interiorCells[i])
+                cw = np.where(cellmask == cell)
                 print(cw)
 
                 print("---")
                 print(ROI_coords)
                 print("Skipping cell...")
-            mask.add_bad_cell(interiorCells[i])
+            mask.add_bad_cell(cell)
             bad_cell_found = True
             continue
 
@@ -456,7 +454,7 @@ def get_parametric_outline(mask: MaskStruct, nseg, ROI_by_CH, options):
         # no rotation is needed
         if y_v1 == 0 or x_v1 == 0:
             if options.get("debug"):
-                print(interiorCells[i])
+                print(cell)
                 print(x_v1, y_v1)
                 print("Eigenvalues:")
                 print(eigenvals)
@@ -541,7 +539,7 @@ def get_parametric_outline(mask: MaskStruct, nseg, ROI_by_CH, options):
         y = aligned_outline[0][:, 1] + tminy
 
         x, y = linear_interpolation(x, y, npoints)
-        yb, xb = cell_boundary[interiorCells[i]]
+        yb, xb = cell_boundary[cell]
 
         # save the 100
         bxy = np.column_stack((xb, yb))
@@ -789,7 +787,7 @@ def interpalong(poly, npoints):
 
 
 def showshapesbycluster(mask, nseg, cellbycluster, filename):
-    cellmask = mask.get_data()[0, 0, nseg, 0, :, :]
+    cellmask = mask.data[0, 0, nseg, 0, :, :]
     # print(cellmask.shape)
     # print('Largest value in cell mask=')
     # print(np.amax(cellmask))

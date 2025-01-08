@@ -475,7 +475,7 @@ def calculations(
     y = y.astype(int)
     x = x.astype(int)
 
-    temp = im.get_data()
+    temp = im.data
 
     channel_all_mask = temp[0, t, :, z, y, x]
     ROI = np.transpose(channel_all_mask)
@@ -628,8 +628,7 @@ def cell_map(
     ignore_cols = options.get("ignore_4cellmap")
     subtype_columns = options.get("subtype_columns")
 
-    mask_img = mask.get_data()
-    mask_img = mask_img[0, 0, seg_n, :, :, :]
+    mask_img = mask.data[0, 0, seg_n, :, :, :]
     # temp = np.zeros(mask_img.shape)
 
     inCells = np.asarray(mask.get_interior_cells())
@@ -786,13 +785,13 @@ def get_coordinates(mask, options):
     mask_channels = []
     channel_coords = []
     # channel_coords_np = []
-    s, t, c, z, y, x = mask.get_data().shape
-    mask_data = mask.get_data().copy()
+    old_shape = mask.data.shape
+    mask_data = mask.data.copy()
 
     # find cell index - if not sequential
     cell_num = np.unique(mask_data)
     maxvalue = len(cell_num)
-    mask.set_cell_index(cell_num[1:])
+    # mask.set_cell_index(cell_num[1:])
 
     if maxvalue - 1 != np.max(mask_data):
         cell_num_idx = np.arange(0, len(cell_num))
@@ -804,9 +803,9 @@ def get_coordinates(mask, options):
         #     fmask_data[i] = cell_num_dict.get(fmask_data[i])
         cell_num_index_map(fmask_data, cell_num_dict)
 
-        fmask_data = fmask_data.reshape((s, t, c, z, y, x))
-        mask.set_data(fmask_data)
-        mask_data = mask.get_data()
+        fmask_data = fmask_data.reshape(old_shape)
+        mask.data = fmask_data
+        mask_data = mask.data
 
         cell_num = np.unique(mask_data)
         maxvalue = len(cell_num)
@@ -891,7 +890,7 @@ def adj_cell_list(
     """
     print("Finding cell adjacency matrix...")
 
-    # mask_data = mask.get_data()[0, 0, 3, 0, :, :]
+    # mask_data = mask.data[0, 0, 3, 0, :, :]
     # interiorCells = mask.get_interior_cells()
     stime = time.monotonic()
 
@@ -1033,8 +1032,8 @@ def AdjacencyMatrix_3D(
     else:
         delta = len(window) + options.get("adj_matrix_delta")
 
-    # maskImg = mask.get_data()[0, 0, loc, 0, :, :]
-    maskImg = mask.get_data()[0, 0, loc, :, :, :]
+    # maskImg = mask.data[0, 0, loc, 0, :, :]
+    maskImg = mask.data[0, 0, loc, :, :, :]
 
     z = maskImg.shape[0]
     a = maskImg.shape[2]
@@ -1155,7 +1154,7 @@ def AdjacencyMatrix(
         delta = len(window) + options.get("adj_matrix_delta")
 
     maskImg = mask.data[0, 0, loc, 0, :, :]
-    # maskImg = mask.get_data()
+    # maskImg = mask.data
 
     # #check if 3D or not
     # if maskImg.shape[3] > 1:
@@ -1283,7 +1282,7 @@ def get_windows(numCells, cellEdgeList, delta, a, b):
     windowRange_xy = []
 
     for i in range(1, numCells):
-        # maskImg = mask.get_data()[0, 0, loc, 0, :, :]
+        # maskImg = mask.data[0, 0, loc, 0, :, :]
         # xmin, xmax, ymin, ymax = np.min(cellEdgeList[inCells[i]][0]), np.max(cellEdgeList[inCells[i]][0]), np.min(
         #     cellEdgeList[inCells[i]][1]), np.max(cellEdgeList[inCells[i]][1])
 
@@ -1323,7 +1322,7 @@ def nbget_windows(numCells, cellEdgeList, delta, a, b):
     windowRange_xy = nbList()
 
     for i in nb.prange(numCells):
-        # maskImg = mask.get_data()[0, 0, loc, 0, :, :]
+        # maskImg = mask.data[0, 0, loc, 0, :, :]
         xmin, xmax, ymin, ymax = (
             np.min(cellEdgeList[i][0]),
             np.max(cellEdgeList[i][0]),
@@ -1603,11 +1602,11 @@ def build_matrix(
     if j == 0:
         return np.zeros(
             (
-                im.get_data().shape[1],
-                mask.get_data().shape[2],
+                im.data.shape[1],
+                mask.data.shape[2],
                 len(masked_imgs_coord),
-                im.get_data().shape[2],
-                im.get_data().shape[2],
+                im.data.shape[2],
+                im.data.shape[2],
             )
         )
     else:
@@ -1624,10 +1623,10 @@ def build_vector(
     if j == 0:
         return np.zeros(
             (
-                im.get_data().shape[1],
-                mask.get_data().shape[2],
+                im.data.shape[1],
+                mask.data.shape[2],
                 len(masked_imgs_coord),
-                im.get_data().shape[2],
+                im.data.shape[2],
                 1,
             )
         )
@@ -1636,14 +1635,14 @@ def build_vector(
 
 
 def clusterchannels(
-    im: IMGstruct, fname: str, output_dir: Path, interior_cells: list, options: Dict
+    im: IMGstruct, mask: MaskStruct, fname: str, output_dir: Path, options: Dict
 ) -> np.ndarray:
     """
     cluster all channels using PCA
     """
     print("Dimensionality Reduction of image channels...")
     if options.get("debug"):
-        print("Image dimensions before reduction: ", im.get_data().shape)
+        print("Image dimensions before reduction: ", im.data.shape)
     pca_channels = PCA(n_components=options.get("num_channelPCA_components"))
     channvals = im.data[0, 0, :, :, :, :]
     keepshape = channvals.shape
@@ -1698,7 +1697,14 @@ def clusterchannels(
     b = abs(pca_channels.components_)
     c = np.column_stack((b, a))
 
-    write_2_file(c, fname + "-channelPCA_summary", im, output_dir, options)
+    write_2_file(
+        sub_matrix=c,
+        s=fname + "-channelPCA_summary",
+        img=im,
+        output_dir=output_dir,
+        cellidx=mask.cell_index,
+        options=options,
+    )
 
     return reducedim
 
@@ -1781,7 +1787,7 @@ def SNR(im: IMGstruct, filename: str, output_dir: Path, inCells: list, options: 
     global row_index
 
     print("Calculating Signal to Noise Ratio in image...")
-    channvals = im.get_data()[0, 0, :, :, :, :]
+    channvals = im.data[0, 0, :, :, :, :]
     zlist = []
     channelist = []
 
@@ -1853,10 +1859,10 @@ def voxel_cluster(im: IMGstruct, options: Dict) -> np.ndarray:
     cluster multichannel image into superpixels
     """
     print("Clustering voxels into superpixels...")
-    if im.get_data().shape[0] > 1:
+    if im.data.shape[0] > 1:
         raise NotImplementedError("images with > 1 time point are not supported yet")
 
-    channvals = im.get_data()[0, 0, :, :, :, :]
+    channvals = im.data[0, 0, :, :, :, :]
     keepshape = channvals.shape
     channvals = channvals.reshape(
         channvals.shape[0], channvals.shape[1] * channvals.shape[2] * channvals.shape[3]
@@ -3215,7 +3221,7 @@ def quality_measures(
         bestz = mask.get_bestz()
         ROI_coords = mask.get_ROI()
 
-        im_data = im.get_data()
+        im_data = im.data
         im_dims = im_data.shape
 
         im_channels = im_data[0, 0, :, bestz, :, :]
@@ -3422,7 +3428,7 @@ def quality_measures_3D(
         bestz = mask.get_bestz()
         ROI_coords = mask.get_ROI()
 
-        im_data = im.get_data()
+        im_data = im.data
         im_dims = im_data.shape
 
         im_channels = im_data[0, 0, :, bestz, :, :]
@@ -3623,10 +3629,7 @@ def quality_measures_3D(
 def check_shape(im, mask):
     # put in check here for matching dims
 
-    return (
-        im.get_data().shape[4] != mask.get_data().shape[4]
-        or im.get_data().shape[5] != mask.get_data().shape[5]
-    )
+    return im.data.shape[4] != mask.data.shape[4] or im.data.shape[5] != mask.data.shape[5]
 
 
 def reallocate_parallel(im, mask, ichan, options):
@@ -3641,13 +3644,13 @@ def reallocate_and_merge_intensities(
 ):
     # check if image needs to be resized to match mask
     if check_shape(im, mask):
-        s, t, c, z, y, x = im.get_data().shape
+        s, t, c, z, y, x = im.data.shape
 
         # allocate memory for reallocated im
-        newim = np.zeros((s, t, c, z, mask.get_data().shape[4], mask.get_data().shape[5]))
+        newim = np.zeros((s, t, c, z, mask.data.shape[4], mask.data.shape[5]))
 
-        ROI = mask.get_data()[0, 0, 0, 0, :, :]  # assume chan 0 is the cell mask
-        IMSimg = im.get_data()[0, 0, 0, 0, :, :]
+        ROI = mask.data[0, 0, 0, 0, :, :]  # assume chan 0 is the cell mask
+        IMSimg = im.data[0, 0, 0, 0, :, :]
 
         # do findpixelpixelfraction and getrelevantpixel index once
         print("START findpixelfraction...")
@@ -3666,38 +3669,38 @@ def reallocate_and_merge_intensities(
         #     # allocate portions of the IMS to corresponding areas in the mask
         #     newim[0, 0, ichan, 0, :, :] = reallocateIMS(im, ROI, ichan, X, A, cellArea, reducedsize, options)
 
-        im.set_data(newim)
+        im.data = newim
         newim = None
 
     # check if additional image needs to be stacked with it
     if optional_img_file:
         # img_path = options_img_dir / im.name
         im2 = IMGstruct(optional_img_file, options)
-        stacked_img = np.concatenate((im.get_data(), im2.get_data()), axis=2)
+        stacked_img = np.concatenate((im.data, im2.data), axis=2)
         channel_list = im.get_channel_labels()
         channel_list.extend(im2.get_channel_labels())
 
-        im.set_data(stacked_img)
+        im.data = stacked_img
         im.set_channel_labels(channel_list)
 
     # prune for NaNs
-    im_prune = im.get_data()
+    im_prune = im.data
     nan_find = np.isnan(im_prune)
     im_prune[nan_find] = 0
-    im.set_data(im_prune)
+    im.data = im_prune
 
 
 # def generate_fake_stackimg(im, mask, opt_img_file, options):
 #     #not for general purposes
 #
-#     c = im.get_data().shape[2]
-#     z, y, x = mask.get_data().shape[3], mask.get_data().shape[4], mask.get_data().shape[5]
+#     c = im.data.shape[2]
+#     z, y, x = mask.data.shape[3], mask.data.shape[4], mask.data.shape[5]
 #
 #     im2 = IMGstruct(opt_img_file, options)
 #     channel_list = im.get_channel_labels()
 #     channel_list.extend(im2.get_channel_labels())
 #
-#     c2, z2 = im2.get_data().shape[2], im2.get_data().shape[3]
+#     c2, z2 = im2.data.shape[2], im2.data.shape[3]
 #
 #     im2.quit()
 #
@@ -3801,9 +3804,9 @@ def normalize_image(img):
 
 def normalize_background(im, mask, ROI_coords):
     # pass
-    img = im.get_data().copy()
+    img = im.data.copy()
     # img = img.astype("int64")
-    dims = mask.get_data().shape
+    dims = mask.data.shape
 
     if dims[3] > 1:  # 3D
         for i in range(img.shape[2]):
@@ -3834,13 +3837,13 @@ def normalize_background(im, mask, ROI_coords):
 
             img[0, 0, i, 0, :, :] = img_ch / avg
 
-    im.set_data(img)
+    im.data = img
 
 
 def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
     bound = options.get("zslices")
     bestz = mask.get_bestz()
-    z = mask.get_data().shape[3]
+    z = mask.data.shape[3]
 
     lower_bound = bestz[0] - bound
     upper_bound = bestz[0] + bound + 1
@@ -3851,12 +3854,12 @@ def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
         mask.set_bestz(idx)
         return
     else:
-        new_mask = mask.get_data()[:, :, :, lower_bound:upper_bound, :, :]
-        new_img = img.get_data()[:, :, :, lower_bound:upper_bound, :, :]
+        new_mask = mask.data[:, :, :, lower_bound:upper_bound, :, :]
+        new_img = img.data[:, :, :, lower_bound:upper_bound, :, :]
 
-        mask.set_data(new_mask)
+        mask.data = new_mask
         mask.set_bestz([0])  # set best z back to 0 since we deleted some zstacks
-        img.set_data(new_img)
+        img.data = new_img
 
 
 # @nb.njit()
@@ -3882,7 +3885,7 @@ def set_zdims(mask: MaskStruct, img: IMGstruct, options: Dict):
 #     channellist = nbList()
 #
 #     for j in nb.prange(cl):  # For each channel
-#         # img = im.get_data()[0, 0, j, bestz[0], :, :]
+#         # img = im.data[0, 0, j, bestz[0], :, :]
 #         # img = img[xmin:xmax+1, ymin:ymax+1]
 #         # img = np.multiply(interiormask, img)
 #         # convert to uint
@@ -3922,18 +3925,14 @@ def glcm(
 
     colIndex = ["contrast", "dissimilarity", "homogeneity", "ASM", "energy", "correlation"]
     inCells = mask.get_interior_cells().copy()
-    texture_all = np.zeros(
-        (2, len(inCells), im.get_data().shape[2], len(colIndex) * len(distances))
-    )
+    texture_all = np.zeros((2, len(inCells), im.data.shape[2], len(colIndex) * len(distances)))
 
     # get headers
     channel_labels = im.get_channel_labels().copy() * len(distances) * len(colIndex) * 2
-    maskn = (
-        mask.get_channel_labels()[0:2] * im.get_data().shape[2] * len(distances) * len(colIndex)
-    )
+    maskn = mask.get_channel_labels()[0:2] * im.data.shape[2] * len(distances) * len(colIndex)
     maskn.sort()
-    cols = colIndex * im.get_data().shape[2] * len(distances) * 2
-    dlist = distances * im.get_data().shape[2] * len(colIndex) * 2
+    cols = colIndex * im.data.shape[2] * len(distances) * 2
+    dlist = distances * im.data.shape[2] * len(colIndex) * 2
     column_format = ["{channeln}_{mask}: {col}-{d}" for i in range(len(channel_labels))]
     header = list(
         map(
@@ -3946,8 +3945,8 @@ def glcm(
         )
     )
 
-    # ogimg = im.get_data()
-    # cellsbychannelROI = np.empty((2, cell_total[0], im.get_data().shape[2]), dtype=np.ndarray)
+    # ogimg = im.data
+    # cellsbychannelROI = np.empty((2, cell_total[0], im.data.shape[2]), dtype=np.ndarray)
     # inCells = np.asarray(inCells)
 
     # masklistx = nbList()
@@ -3984,7 +3983,7 @@ def glcm(
                 np.min(curROI[0]),
             )
 
-            imga = im.get_data()
+            imga = im.data
             # cl = len(im.channel_labels)
 
             # l = abc(imga, cl, curROI, xmax, xmin, ymax, ymin)

@@ -97,10 +97,10 @@ def analysis(
 
     # hot fix for stitched images pipeline
     # if there are scenes or time points - they should be channels
-    # if im.get_data().shape[0] > 1 and len(im.get_channel_labels()) > 1:
-    # data = im.get_data()[0, 0, :, :, :, :]
+    # if im.data.shape[0] > 1 and len(im.get_channel_labels()) > 1:
+    # data = im.data[0, 0, :, :, :, :]
     # data = data[np.newaxis, np.newaxis, :, :, :, :]
-    # data = im.get_data()
+    # data = im.data
     # s, t, c, z, y, x = data.shape
     # data = data.reshape(s, t, z, c, y, x)
     # im.set_data(data)
@@ -112,10 +112,10 @@ def analysis(
 
     # hot fix for stitched images pipeline
     # if there are scenes or time points - they should be channels
-    # if mask.get_data().shape[0] > 1 and len(mask.get_channel_labels()) > 1:
-    # data = im.get_data()[0, 0, :, :, :, :]
+    # if mask.data.shape[0] > 1 and len(mask.get_channel_labels()) > 1:
+    # data = im.data[0, 0, :, :, :, :]
     # data = data[np.newaxis, np.newaxis, :, :, :, :]
-    # data = mask.get_data()
+    # data = mask.data
     # s, t, c, z, y, x = data.shape
     # data = data.reshape(s, t, z, c, y, x)
     # mask.set_data(data)
@@ -125,12 +125,12 @@ def analysis(
     ##############################
     ##############################
     ###LOCAL TESTING ON MAC###
-    # data = im.get_data()
+    # data = im.data
     # s, t, c, z, y, x = data.shape
     # data = data.reshape(s, t, z, c, y, x)
     # im.set_data(data)
     #
-    # data = mask.get_data()
+    # data = mask.data
     # s, t, c, z, y, x = data.shape
     # data = data.reshape(s, t, z, c, y, x)
     # mask.set_data(data)
@@ -201,7 +201,7 @@ def analysis(
         print("Skipping outlinePCA...")
 
     # save cell graphs
-    cell_graphs(mask, ROI_coords, mask.interior_cells, baseoutputfilename, output_dir, options)
+    cell_graphs(mask, ROI_coords, baseoutputfilename, output_dir, options)
 
     # signal to noise ratio of the image
     SNR(im, baseoutputfilename, output_dir, mask.cell_index, options)
@@ -248,7 +248,7 @@ def analysis(
     if options.get("skip_texture"):
         # make fake textures matrix - all zeros
         textures = [
-            np.zeros((1, 2, len(mask.cell_count), len(im.channel_labels) * 6, 1)),
+            np.zeros((1, 2, mask.cell_count, len(im.channel_labels) * 6, 1)),
             im.channel_labels * 12,
         ]
         # save it

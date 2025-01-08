@@ -524,7 +524,7 @@ def reallocateIMS(im: IMGstruct, ROI, X, A, cellArea, reducedsize, options):
     thresh = options.get("reallocation_quit_criterion")
     maxiter = options.get("num_of_reallocations")
     averagebackground = options.get("reallocation_avg_bg")
-    # ROI = mask.get_data()[0, 0, 0, 0, :, :]  # assume chan 0 is the cell mask
+    # ROI = mask.data[0, 0, 0, 0, :, :]  # assume chan 0 is the cell mask
     drate = descentrate  # set initial descent rate
     # M is all channels
     M = im.data[0, 0, :, 0, :, :]
@@ -540,7 +540,7 @@ def reallocateIMS(im: IMGstruct, ROI, X, A, cellArea, reducedsize, options):
     M = M.reshape(Mshape[0], Mshape[1] * Mshape[2])
     ROI = np.reshape(ROI, -1)  # also represent as vector
 
-    # totalIntensity = sum(M.get_data())
+    # totalIntensity = sum(M.data)
     # print('sum of M=',totalIntensity)
     maxROI = max(ROI)
 
