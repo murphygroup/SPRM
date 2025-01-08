@@ -1807,6 +1807,7 @@ def SNR(im: IMGstruct, filename: str, output_dir: Path, inCells: list, options: 
     snr_channels = m / sd
     # snr_channels = snr_channels[np.newaxis, :]
     # snr_channels = snr_channels.tolist()
+    snr_channel_sel: list[bool] = []
 
     # define otsu threshold
     for i in range(0, channvals.shape[0]):
@@ -1820,7 +1821,11 @@ def SNR(im: IMGstruct, filename: str, output_dir: Path, inCells: list, options: 
         factor = np.floor(max_img_dtype / max_img)
         img_2D_factor = img_2D * factor
 
-        thresh = threshold_otsu(img_2D_factor)
+        try:
+            thresh = threshold_otsu(img_2D_factor)
+        except ValueError:
+            snr_channel_sel.append(False)
+            continue
         thresh = max(thresh, factor)
 
         above_th = img_2D_factor > thresh
@@ -1838,10 +1843,11 @@ def SNR(im: IMGstruct, filename: str, output_dir: Path, inCells: list, options: 
         #     fbr = 0
 
         channelist.append(fbr)
+        snr_channel_sel.append(True)
 
     channelist = np.asarray(channelist)
 
-    snrs = np.stack([snr_channels, channelist])
+    snrs = np.stack([snr_channels[snr_channel_sel], channelist])
 
     # check for nans
     snrs[np.isnan(snrs)] = 0
@@ -1850,8 +1856,9 @@ def SNR(im: IMGstruct, filename: str, output_dir: Path, inCells: list, options: 
     row_index = 1
     options["row_index_names"] = ["Z-Score", "Otsu"]
 
+    channel_labels_selected = np.array(im.get_channel_labels())[snr_channel_sel]
     # write out 2 rows
-    write_2_csv(im.get_channel_labels(), snrs, filename + "-SNR", output_dir, inCells, options)
+    write_2_csv(channel_labels_selected, snrs, filename + "-SNR", output_dir, inCells, options)
 
     # turn index boolean off
     row_index = 0
