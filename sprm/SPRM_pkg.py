@@ -2710,7 +2710,6 @@ def save_all(
     im: IMGstruct,
     mask: MaskStruct,
     output_dir: Path,
-    cellidx: list,
     options: Dict,
     mean_vector,
     covar_matrix,
@@ -2726,7 +2725,7 @@ def save_all(
             filename + "-cell_shape",
             im,
             output_dir,
-            cellidx,
+            mask.cell_index,
             options,
         )
 
@@ -2736,7 +2735,7 @@ def save_all(
             filename + "-cell_shape_normalized",
             im,
             output_dir,
-            cellidx,
+            mask.cell_index,
             options,
         )
 
@@ -2745,7 +2744,7 @@ def save_all(
         filename + "-cell_channel_meanAll",
         im,
         output_dir,
-        cellidx,
+        mask.cell_index,
         options,
     )
     # write_2_file(texture_v[0, -1, :, :, 0], filename + '-cell_channel_textures', im, output_dir, options)
@@ -2756,7 +2755,7 @@ def save_all(
             filename + "-" + mask.get_channel_labels()[i] + "_channel_mean",
             im,
             output_dir,
-            cellidx,
+            mask.cell_index,
             options,
         )
         write_2_file(
@@ -2764,7 +2763,7 @@ def save_all(
             filename + "-" + mask.get_channel_labels()[i] + "_channel_covar",
             im,
             output_dir,
-            cellidx,
+            mask.cell_index,
             options,
         )
         write_2_file(
@@ -2772,7 +2771,7 @@ def save_all(
             filename + "-" + mask.get_channel_labels()[i] + "_channel_total",
             im,
             output_dir,
-            cellidx,
+            mask.cell_index,
             options,
         )
 
