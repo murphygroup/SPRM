@@ -164,6 +164,8 @@ def NMF_calc(im, fname, output_dir, options):
     flattened_copy = flattened.copy()
     tries = 0
     while True:
+        if flattened_copy.shape[0] == 0:
+            raise ValueError("NMF failed repeatedly")
         try:
             transformed_flat = nmf.fit(flattened_copy)
             break
@@ -1655,10 +1657,13 @@ def clusterchannels(
 
     if options.get("zscore_norm"):
         channvals = stats.zscore(channvals)
+    channvals[np.isnan(channvals)] = 0
 
     channvals_full = channvals.copy()
     tries = 0
     while True:
+        if channvals.shape[0] == 0:
+            raise ValueError("PCA failed repeatedly")
         try:
             m = pca_channels.fit(channvals)
             break
@@ -1868,11 +1873,13 @@ def voxel_cluster(im: IMGstruct, options: Dict) -> np.ndarray:
         channvals.shape[0], channvals.shape[1] * channvals.shape[2] * channvals.shape[3]
     )
     channvals = channvals.transpose()
-    # for some reason, voxel values are occasionally NaNs (especially edge rows)
     channvals[np.where(np.isnan(channvals))] = 0
 
     if options.get("zscore_norm"):
         channvals = stats.zscore(channvals)
+    # for some reason, voxel values are occasionally NaNs (especially edge rows)
+    # and we might have introduced new NaNs for channels with constant value
+    channvals[np.where(np.isnan(channvals))] = 0
 
     if options.get("debug"):
         print("Multichannel dimensions: ", channvals.shape)
