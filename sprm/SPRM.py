@@ -80,7 +80,7 @@ def analysis(
     output_dir: Path,
     options: Dict[str, Any],
     celltype_labels: Optional[pd.DataFrame],
-) -> Optional[Tuple[IMGstruct, MaskStruct, int, Optional[Dict[str, Any]]]]:
+) -> Optional[Tuple[IMGstruct, MaskStruct, Optional[Dict[str, Any]]]]:
     image_stime = time.monotonic()
     print("Reading in image and corresponding mask file...")
     print("Image name:", img_file.name)
@@ -339,7 +339,7 @@ def analysis(
     if options.get("debug"):
         print(f"Runtime for image {im.name}: {time.monotonic() - image_stime}")
 
-    return im, mask, cell_count, seg_metrics
+    return im, mask, seg_metrics
 
 
 def main(
@@ -381,7 +381,6 @@ def main(
     # init list of saved
     im_list = []
     mask_list = []
-    cell_total = []
     seg_metric_list = []
 
     # start time of processing a single img
@@ -428,23 +427,18 @@ def main(
         for future in futures:
             maybe_result = future.result()
             if maybe_result is not None:
-                im, mask, cell_count, seg_metrics = maybe_result
+                im, mask, seg_metrics = maybe_result
 
                 im_list.append(im)
                 mask_list.append(mask)
-                cell_total.append(cell_count)
                 seg_metric_list.append(seg_metrics)
 
     ### CWL END ###
 
     if options.get("image_dimension") == "3D":
-        quality_measures_3D(
-            im_list, mask_list, seg_metric_list, cell_total, img_files, output_dir, options
-        )
+        quality_measures_3D(im_list, mask_list, seg_metric_list, img_files, output_dir, options)
     else:
-        quality_measures(
-            im_list, mask_list, seg_metric_list, cell_total, img_files, output_dir, options
-        )
+        quality_measures(im_list, mask_list, seg_metric_list, img_files, output_dir, options)
 
     if options.get("debug"):
         print(f"Total runtime: {time.monotonic() - stime}")

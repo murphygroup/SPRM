@@ -633,7 +633,7 @@ def cell_map(
     mask_img = mask.data[0, 0, seg_n, :, :, :]
     # temp = np.zeros(mask_img.shape)
 
-    inCells = np.asarray(mask.get_interior_cells())
+    inCells = np.asarray(mask.cell_index)
 
     list_of_cluster_imgs = []
     # loop through all features or columns
@@ -3213,7 +3213,6 @@ def quality_measures(
     im_list: List[IMGstruct],
     mask_list: List[MaskStruct],
     seg_metric_list: List[Dict[str, Any]],
-    cell_total: List[int],
     img_files: List[Path],
     output_dir: Path,
     options: Dict[str, Any],
@@ -3303,7 +3302,7 @@ def quality_measures(
         cell_bg_avgR = (
             total_intensity_per_chancell
             / (total_intensity_per_chanbg / bgpixels.shape[1])
-            / cell_total[i]
+            / mask_list[i].cell_count
         )
 
         # read in silhouette scores
@@ -3346,7 +3345,7 @@ def quality_measures(
         struct["Image Information"]["Number of Channels"] = len(channels)
         struct["Image Quality Metrics that require cell segmentation"][
             "Number of Cells"
-        ] = cell_total[i]
+        ] = mask_list[i].cell_count
         # struct["Number of Background Pixels"] = bgpixels.shape[1]
         struct["Image Quality Metrics that require cell segmentation"][
             "Fraction of Image Occupied by Cells"
@@ -3420,7 +3419,6 @@ def quality_measures_3D(
     im_list: List[IMGstruct],
     mask_list: List[MaskStruct],
     seg_metric_list: List[Dict[str, Any]],
-    cell_total: List[int],
     img_files: List[Path],
     output_dir: Path,
     options: Dict[str, Any],
@@ -3524,10 +3522,10 @@ def quality_measures_3D(
             cell_bg_avgR = (
                 total_intensity_per_chancell
                 / (total_intensity_per_chanbg / bgpixels.shape[1])
-                / cell_total[i]
+                / mask_list[i].cell_count
             )
         else:
-            cell_bg_avgR = total_intensity_per_chancell / cell_total[i]
+            cell_bg_avgR = total_intensity_per_chancell / mask_list[i].cell_count
 
         # read in silhouette scores
         sscore_path = output_dir / (img_name + "clusteringsilhouetteScores.csv")
@@ -3569,7 +3567,7 @@ def quality_measures_3D(
         struct["Image Information"]["Number of Channels"] = len(channels)
         struct["Image Quality Metrics that require cell segmentation"][
             "Number of Cells"
-        ] = cell_total[i]
+        ] = mask_list[i].cell_count
         # struct["Number of Background Pixels"] = bgpixels.shape[1]
         struct["Image Quality Metrics that require cell segmentation"][
             "Fraction of Image Occupied by Cells"
