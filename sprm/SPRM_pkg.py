@@ -3318,9 +3318,8 @@ def quality_measures(
         # read in signal csv
         signal_path = output_dir / (img_name + "-SNR.csv")
         signal_file = get_paths(signal_path)
-        SNR = pd.read_csv(signal_file[0]).to_numpy()
-        zscore = SNR[0, 1:]
-        otsu = SNR[1, 1:]
+        snr_df = pd.read_csv(signal_file[0], index_col=0).T
+        snr_channels = set(snr_df.index)
 
         # Image Information
         struct["Image Information"] = dict()
@@ -3384,13 +3383,13 @@ def quality_measures(
                 "Silhouette Scores From Clustering"
             ]["Mean-All"][j + 2] = mean_all[j]
 
-        for j in range(len(channels)):
+        for j, channel in enumerate(channels):
             struct["Image Quality Metrics not requiring image segmentation"]["Total Intensity"][
-                channels[j]
+                channel
             ] = total_intensity_per_chan[j]
             struct["Image Quality Metrics that require cell segmentation"]["Channel Statistics"][
                 "Average per Cell Ratios"
-            ][channels[j]] = dict()
+            ][channel] = dict()
 
             # struct["Image Quality Metrics not requiring image segmentation"]["Total Intensity"][
             #     channels[j]
@@ -3401,17 +3400,18 @@ def quality_measures(
 
             struct["Image Quality Metrics that require cell segmentation"]["Channel Statistics"][
                 "Average per Cell Ratios"
-            ][channels[j]]["Nuclear / Cell"] = nuc_cell_avgR[j]
+            ][channel]["Nuclear / Cell"] = nuc_cell_avgR[j]
             struct["Image Quality Metrics that require cell segmentation"]["Channel Statistics"][
                 "Average per Cell Ratios"
-            ][channels[j]]["Cell / Background"] = cell_bg_avgR[j]
+            ][channel]["Cell / Background"] = cell_bg_avgR[j]
 
-            struct["Image Quality Metrics not requiring image segmentation"][
-                "Signal To Noise Otsu"
-            ][channels[j]] = otsu[j]
-            struct["Image Quality Metrics not requiring image segmentation"][
-                "Signal To Noise Z-Score"
-            ][channels[j]] = zscore[j]
+            if channel in snr_channels:
+                struct["Image Quality Metrics not requiring image segmentation"][
+                    "Signal To Noise Otsu"
+                ][channel] = snr_df.loc[channel, "Otsu"]
+                struct["Image Quality Metrics not requiring image segmentation"][
+                    "Signal To Noise Z-Score"
+                ][channels[j]] = snr_df.loc[channel, "Z-Score"]
 
         with open(output_dir / (img_name + "-SPRM_Image_Quality_Measures.json"), "w") as json_file:
             json.dump(struct, json_file, indent=4, sort_keys=True, cls=NumpyEncoder)
