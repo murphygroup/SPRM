@@ -3274,7 +3274,7 @@ def quality_measures(
         # total_intensity_path = output_dir / (img_name + '-cell_channel_total.csv')
         # total_intensity_file = get_paths(total_intensity_path)
         # total_intensity = pd.read_csv(total_intensity_file[0]).to_numpy()
-        total_intensity_cell = np.concatenate(cells, axis=1)
+        total_intensity_cell = np.concatenate(cells, axis=1).astype(int)
         total_intensity_per_chancell = np.sum(
             im_channels[0, :, total_intensity_cell[0], total_intensity_cell[1]], axis=0
         )
@@ -3288,7 +3288,9 @@ def quality_measures(
         # total_intensity_nuclei_per_chan = np.sum(total_intensity_nuclei[:, 1:], axis=0)
 
         # nuclei total intensity per channel
-        total_intensity_nuclei = np.concatenate(nuclei, axis=1)
+        # Coerce to int; NumPy selects floating point as the data type
+        # if some values are empty lists?
+        total_intensity_nuclei = np.concatenate(nuclei, axis=1).astype(int)
         total_intensity_nuclei_per_chan = np.sum(
             im_channels[0, :, total_intensity_nuclei[0], total_intensity_nuclei[1]], axis=0
         )
