@@ -3,7 +3,7 @@
 Ted Zhang, Haoran Chen, Matt Ruffalo, and Robert F. Murphy\
 Ray and Stephanie Lane Computational Biology Department\
 School of Computer Science, Carnegie Mellon University\
-V1.5.4 September 23, 2025
+V1.5.5 October 1, 2025
 
 ## Description
 SPRM is a statistical modeling program that is used in the HuBMAP project to calculate a range of metrics, descriptors/features and models from multichannel tissue images.  It requires at a minimum a multichannel tissue image and a corresponding indexed image containing cell segmentations.  The metrics measure the quality of the provided images and the quality of the provided cell segmentation.  The descriptors are used for clustering of cells using various approaches and are saved for use in comparison with other tissue images and for content-based image search.  
@@ -54,12 +54,12 @@ Install all dependencies:
 ```bash
 pip install .
 ```
-In the demo you can then either:
+Change to the demo folder ("cd demo") and you can then either:
 * Use the shell script `run_sprm.sh` which will just run SPRM using the downloaded demo image files.  It will place the outputs in the folder sprm_demo_outputs and write a log of the messages from SPRM into the file sprm_demo_outputs/sprm_demo_outputs.log.  
 
 or
 
-* Use the jupyter notebook sprm_demo.ipynb which will run SRPM on the demo files and then display the outputs in the notebook.
+* Activate the SPRM environment (e.g., "conda activate SPRM") and then start jupyter notebook ("jupyter notebook").  Open the sprm_demo.ipynb notebook which will run SRPM on the demo files and then display the outputs in the notebook.
 
 **EXAMPLES**
 
